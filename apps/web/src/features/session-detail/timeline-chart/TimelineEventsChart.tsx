@@ -26,6 +26,7 @@ export function TimelineEventsChart({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
+  const [zoom, setZoom] = useState(1)
   const [tooltip, setTooltip] = useState<{
     item: TooltipItem
     position: { x: number; y: number }
@@ -124,12 +125,47 @@ export function TimelineEventsChart({
         )}
       </div>
 
-      {/* Legend */}
-      {allToolNames.length > 0 && (
-        <div className="mb-3">
-          <TimelineLegend toolNames={allToolNames} />
+      {/* Legend + Zoom controls */}
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="flex-1">
+          {allToolNames.length > 0 && (
+            <TimelineLegend toolNames={allToolNames} />
+          )}
         </div>
-      )}
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.max(1, z - 0.5))}
+            disabled={zoom <= 1}
+            className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-30"
+            title="Zoom out"
+          >
+            −
+          </button>
+          <span className="min-w-[3rem] text-center text-[10px] tabular-nums text-gray-500">
+            {zoom === 1 ? 'Fit' : `${zoom.toFixed(1)}x`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.min(8, z + 0.5))}
+            disabled={zoom >= 8}
+            className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-30"
+            title="Zoom in"
+          >
+            +
+          </button>
+          {zoom > 1 && (
+            <button
+              type="button"
+              onClick={() => setZoom(1)}
+              className="ml-1 rounded bg-gray-800 px-2 py-0.5 text-[10px] text-gray-400 transition-colors hover:bg-gray-700"
+              title="Reset zoom"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Chart container */}
       <div ref={containerRef} className="relative overflow-x-auto">
@@ -137,7 +173,7 @@ export function TimelineEventsChart({
           <>
             <TimelineChart
               data={chartData}
-              width={Math.max(width, 400)}
+              width={Math.max(width * zoom, 400)}
               onHover={handleHover}
             />
             {tooltip && (

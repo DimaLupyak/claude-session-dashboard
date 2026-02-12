@@ -1,3 +1,15 @@
+/**
+ * Shorten long MCP tool names for display.
+ * e.g. "mcp__plugin_playwright_playwright__browser_navigate" → "browser_navigate"
+ * e.g. "mcp__plugin_context7_context7__resolve-library-id" → "resolve-library-id"
+ */
+export function shortenToolName(name: string): string {
+  // MCP plugin tools: mcp__plugin_{plugin}_{provider}__{action}
+  const mcpMatch = name.match(/^mcp__[^_]+_[^_]+_[^_]+__(.+)$/)
+  if (mcpMatch) return mcpMatch[1]
+  return name
+}
+
 const TOOL_COLORS: Record<string, string> = {
   // File reading
   Read: '#60a5fa', // blue-400

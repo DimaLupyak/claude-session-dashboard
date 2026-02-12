@@ -1,4 +1,5 @@
 import type { TooltipItem } from './timeline-types'
+import { shortenToolName } from './timeline-colors'
 import { formatDuration } from '@/lib/utils/format'
 import { formatTokenCount } from '@/lib/utils/format'
 import { format } from 'date-fns'
@@ -20,7 +21,7 @@ export function TimelineTooltip({ item, position }: Props) {
     >
       {item.kind === 'tool' && (
         <div>
-          <div className="font-semibold text-gray-100">{item.toolName}</div>
+          <div className="font-semibold text-gray-100">{shortenToolName(item.toolName)}</div>
           <div className="text-gray-400">
             {format(new Date(item.timestamp), 'HH:mm:ss')}
           </div>

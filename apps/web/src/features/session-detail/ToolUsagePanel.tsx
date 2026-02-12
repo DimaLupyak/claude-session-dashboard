@@ -1,3 +1,5 @@
+import { shortenToolName } from './timeline-chart/timeline-colors'
+
 export function ToolUsagePanel({
   toolFrequency,
 }: {
@@ -25,8 +27,8 @@ export function ToolUsagePanel({
       <div className="mt-3 space-y-1.5">
         {sorted.slice(0, 15).map(([tool, count]) => (
           <div key={tool} className="flex items-center gap-2">
-            <span className="w-32 shrink-0 truncate text-xs font-mono text-gray-400">
-              {tool}
+            <span className="w-32 shrink-0 truncate text-xs font-mono text-gray-400" title={tool}>
+              {shortenToolName(tool)}
             </span>
             <div className="flex-1">
               <div

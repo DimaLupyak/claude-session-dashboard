@@ -1,4 +1,4 @@
-import { getToolColor } from './timeline-colors'
+import { getToolColor, shortenToolName } from './timeline-colors'
 
 interface Props {
   toolNames: string[]
@@ -18,7 +18,7 @@ export function TimelineLegend({ toolNames }: Props) {
             className="inline-block h-2 w-2 rounded-full"
             style={{ backgroundColor: getToolColor(name) }}
           />
-          <span>{name}</span>
+          <span>{shortenToolName(name)}</span>
         </div>
       ))}
       <div className="flex items-center gap-1">

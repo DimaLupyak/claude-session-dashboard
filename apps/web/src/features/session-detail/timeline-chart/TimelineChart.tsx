@@ -5,7 +5,7 @@ import type {
   TooltipItem,
   AgentLaneData,
 } from './timeline-types'
-import { getToolColor } from './timeline-colors'
+import { getToolColor, shortenToolName } from './timeline-colors'
 
 const LEFT_MARGIN = 90
 const RIGHT_MARGIN = 16
