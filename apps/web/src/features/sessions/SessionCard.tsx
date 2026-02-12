@@ -1,10 +1,21 @@
 import { Link } from '@tanstack/react-router'
 import type { SessionSummary } from '@/lib/parsers/types'
 import { formatDuration, formatRelativeTime, formatBytes } from '@/lib/utils/format'
+import { usePrivacy } from '@/features/privacy/PrivacyContext'
 import { StatusBadge } from './StatusBadge'
 import { RunningTimer } from './RunningTimer'
 
 export function SessionCard({ session }: { session: SessionSummary }) {
+  const { privacyMode, anonymizePath, anonymizeProjectName } = usePrivacy()
+  const displayName = privacyMode
+    ? anonymizeProjectName(session.projectName)
+    : session.projectName
+  const displayCwd = session.cwd
+    ? privacyMode
+      ? anonymizePath(session.cwd)
+      : session.cwd
+    : null
+
   return (
     <Link
       to="/sessions/$sessionId"
@@ -16,7 +27,7 @@ export function SessionCard({ session }: { session: SessionSummary }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-sm font-semibold text-white">
-              {session.projectName}
+              {displayName}
             </h3>
             <StatusBadge isActive={session.isActive} />
           </div>
@@ -52,9 +63,9 @@ export function SessionCard({ session }: { session: SessionSummary }) {
         </span>
       </div>
 
-      {session.cwd && (
+      {displayCwd && (
         <p className="mt-2 truncate text-xs font-mono text-gray-600">
-          {session.cwd}
+          {displayCwd}
         </p>
       )}
     </Link>

@@ -8,6 +8,7 @@ import { ErrorPanel } from '@/features/session-detail/ErrorPanel'
 import { AgentsSkillsPanel } from '@/features/session-detail/AgentsSkillsPanel'
 import { TasksPanel } from '@/features/session-detail/TasksPanel'
 import { formatDuration, formatDateTime } from '@/lib/utils/format'
+import { usePrivacy } from '@/features/privacy/PrivacyContext'
 import { z } from 'zod'
 
 const searchSchema = z.object({
@@ -22,6 +23,8 @@ export const Route = createFileRoute('/_dashboard/sessions/$sessionId')({
 function SessionDetailPage() {
   const { sessionId } = Route.useParams()
   const { project = '' } = Route.useSearch()
+
+  const { privacyMode, anonymizeProjectName } = usePrivacy()
 
   const { data: detail, isLoading, error } = useQuery(
     sessionDetailQuery(sessionId, project),
@@ -71,7 +74,9 @@ function SessionDetailPage() {
             &larr; Sessions
           </Link>
           <h1 className="mt-1 text-xl font-bold text-white">
-            {detail.projectName}
+            {privacyMode
+              ? anonymizeProjectName(detail.projectName)
+              : detail.projectName}
           </h1>
           <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
             {detail.branch && (

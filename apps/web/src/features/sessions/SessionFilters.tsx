@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Route } from '@/routes/_dashboard/sessions/index'
+import { usePrivacy } from '@/features/privacy/PrivacyContext'
 
 interface SessionFiltersProps {
   projects: string[]
@@ -10,6 +11,7 @@ interface SessionFiltersProps {
 export function SessionFilters({ projects, activeCount }: SessionFiltersProps) {
   const navigate = useNavigate()
   const { search: urlSearch, status, project } = Route.useSearch()
+  const { privacyMode, anonymizeProjectName } = usePrivacy()
 
   // Local search state with debounce
   const [localSearch, setLocalSearch] = useState(urlSearch)
@@ -96,7 +98,7 @@ export function SessionFilters({ projects, activeCount }: SessionFiltersProps) {
           <option value="">All projects</option>
           {projects.map((p) => (
             <option key={p} value={p}>
-              {p}
+              {privacyMode ? anonymizeProjectName(p) : p}
             </option>
           ))}
         </select>

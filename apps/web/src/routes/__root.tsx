@@ -7,6 +7,7 @@ import {
   Scripts,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { PrivacyProvider } from '@/features/privacy/PrivacyContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,7 +39,9 @@ function RootComponent() {
   return (
     <RootDocument>
       <QueryClientProvider client={queryClient}>
-        <Outlet />
+        <PrivacyProvider>
+          <Outlet />
+        </PrivacyProvider>
       </QueryClientProvider>
     </RootDocument>
   )
