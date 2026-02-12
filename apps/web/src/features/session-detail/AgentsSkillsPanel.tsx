@@ -1,6 +1,10 @@
-import type { AgentInvocation, SkillInvocation } from '@/lib/parsers/types'
-import { formatTokenCount, formatDuration } from '@/lib/utils/format'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type { AgentInvocation, SkillInvocation, TokenUsage } from '@/lib/parsers/types'
+import { formatTokenCount, formatDuration, formatUSD } from '@/lib/utils/format'
 import { format } from 'date-fns'
+import { settingsQuery } from '@/features/settings/settings.queries'
+import { getMergedPricing, calculateSessionCost } from '@/features/cost-estimation/cost-calculator'
 
 export function AgentsSkillsPanel({
   agents,
@@ -9,6 +13,32 @@ export function AgentsSkillsPanel({
   agents: AgentInvocation[]
   skills: SkillInvocation[]
 }) {
+  // Cost calculation per agent (hooks must be called before any early returns)
+  const { data: settings } = useQuery(settingsQuery)
+
+  const { agentCosts, totalAgentCost } = useMemo(() => {
+    if (!settings) return { agentCosts: new Map<number, number>(), totalAgentCost: 0 }
+
+    const pricingTable = getMergedPricing(settings)
+    const costs = new Map<number, number>()
+    let total = 0
+
+    for (let i = 0; i < agents.length; i++) {
+      const agent = agents[i]
+      if (!agent.tokens) continue
+
+      const modelKey = agent.model ?? 'claude-sonnet-4'
+      const tokensByModel: Record<string, TokenUsage> = {
+        [modelKey]: agent.tokens,
+      }
+      const breakdown = calculateSessionCost(tokensByModel, pricingTable)
+      costs.set(i, breakdown.totalUSD)
+      total += breakdown.totalUSD
+    }
+
+    return { agentCosts: costs, totalAgentCost: total }
+  }, [settings, agents])
+
   if (agents.length === 0 && skills.length === 0) return null
 
   // Count agent types for summary
@@ -42,7 +72,8 @@ export function AgentsSkillsPanel({
         {agents.length} agent dispatch{agents.length !== 1 ? 'es' : ''}
         {totalAgentTokens > 0 && (
           <span className="ml-1 text-indigo-400">
-            ({formatTokenCount(totalAgentTokens)} tokens)
+            ({formatTokenCount(totalAgentTokens)} tokens
+            {totalAgentCost > 0 && ` · ~${formatUSD(totalAgentCost)}`})
           </span>
         )}
         {skills.length > 0 &&
@@ -102,6 +133,7 @@ export function AgentsSkillsPanel({
           {agents.map((a, i) => {
             const tokenCount =
               a.totalTokens ?? computeAgentTokens(a)
+            const agentCost = agentCosts.get(i)
             return (
               <div
                 key={`a-${i}`}
@@ -117,6 +149,11 @@ export function AgentsSkillsPanel({
                   {tokenCount != null && tokenCount > 0 && (
                     <span className="text-[10px] font-mono text-indigo-400/80">
                       {formatTokenCount(tokenCount)}
+                    </span>
+                  )}
+                  {agentCost != null && agentCost > 0 && (
+                    <span className="text-[10px] font-mono text-emerald-400/80">
+                      ~{formatUSD(agentCost)}
                     </span>
                   )}
                   {a.totalToolUseCount != null && (

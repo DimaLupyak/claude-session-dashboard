@@ -15,11 +15,7 @@ export function ModelUsageChart({ data }: { data: ModelUsage }) {
   const chartData = Object.entries(data).map(([model, usage]) => ({
     name: model.replace(/^claude-/, '').split('-202')[0],
     fullName: model,
-    totalTokens:
-      usage.inputTokens +
-      usage.outputTokens +
-      usage.cacheReadInputTokens +
-      usage.cacheCreationInputTokens,
+    totalTokens: usage.inputTokens + usage.outputTokens,
     outputTokens: usage.outputTokens,
   }))
 
