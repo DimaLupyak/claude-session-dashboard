@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { getSessionDetail, getSessionMessages } from './session-detail.server'
+import { getSessionDetail } from './session-detail.server'
 
 export function sessionDetailQuery(sessionId: string, projectPath: string) {
   return queryOptions({
@@ -9,15 +9,3 @@ export function sessionDetailQuery(sessionId: string, projectPath: string) {
   })
 }
 
-export function sessionMessagesQuery(
-  sessionId: string,
-  projectPath: string,
-  offset: number,
-  limit: number,
-) {
-  return queryOptions({
-    queryKey: ['session', 'messages', sessionId, offset, limit],
-    queryFn: () =>
-      getSessionMessages({ data: { sessionId, projectPath, offset, limit } }),
-  })
-}

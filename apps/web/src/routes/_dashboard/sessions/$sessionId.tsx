@@ -7,7 +7,6 @@ import { ToolUsagePanel } from '@/features/session-detail/ToolUsagePanel'
 import { ErrorPanel } from '@/features/session-detail/ErrorPanel'
 import { AgentsSkillsPanel } from '@/features/session-detail/AgentsSkillsPanel'
 import { TasksPanel } from '@/features/session-detail/TasksPanel'
-import { RawLogViewer } from '@/features/session-detail/RawLogViewer'
 import { formatDuration, formatDateTime } from '@/lib/utils/format'
 import { z } from 'zod'
 
@@ -132,10 +131,6 @@ function SessionDetailPage() {
         />
       </div>
 
-      {/* Raw log */}
-      <div className="mt-6">
-        <RawLogViewer sessionId={sessionId} projectPath={project} />
-      </div>
     </div>
   )
 }

@@ -2,7 +2,7 @@ import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { createServerFn } from '@tanstack/react-start'
 import { getProjectsDir, decodeProjectDirName, extractProjectName } from '@/lib/utils/claude-path'
-import { parseDetail, readSessionMessages } from '@/lib/parsers/session-parser'
+import { parseDetail } from '@/lib/parsers/session-parser'
 
 export const getSessionDetail = createServerFn({ method: 'GET' })
   .inputValidator((input: { sessionId: string; projectPath: string }) => input)
@@ -14,19 +14,6 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
 
     const projectName = extractProjectName(data.projectPath)
     return parseDetail(filePath.path, data.sessionId, data.projectPath, projectName)
-  })
-
-export const getSessionMessages = createServerFn({ method: 'GET' })
-  .inputValidator(
-    (input: { sessionId: string; projectPath: string; offset: number; limit: number }) => input,
-  )
-  .handler(async ({ data }) => {
-    const filePath = findSessionFile(data.sessionId, data.projectPath)
-    if (!filePath) {
-      throw new Error(`Session not found: ${data.sessionId}`)
-    }
-
-    return readSessionMessages(filePath.path, data.offset, data.limit)
   })
 
 function findSessionFile(
