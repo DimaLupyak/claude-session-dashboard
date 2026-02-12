@@ -142,6 +142,11 @@ export function AgentsSkillsPanel({
                 <span className="shrink-0 rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300">
                   {a.subagentType}
                 </span>
+                {a.model && (
+                  <span className="shrink-0 rounded bg-gray-800 px-1.5 py-0.5 text-[10px] font-mono text-gray-400">
+                    {a.model.replace(/^claude-/, '').replace(/-\d{8}$/, '')}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate text-xs text-gray-400">
                   {a.description}
                 </span>

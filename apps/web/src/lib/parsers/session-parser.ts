@@ -126,6 +126,7 @@ export async function parseDetail(
   const agentByToolUseId = new Map<string, AgentInvocation>()
   const agentProgressTokens = new Map<string, TokenUsage>()
   const agentProgressToolCalls = new Map<string, Record<string, number>>()
+  const agentProgressModel = new Map<string, string>()
 
   // Map for linking TaskCreate tool_use_id to pending task
   const pendingTaskByToolUseId = new Map<string, TaskItem>()
@@ -147,6 +148,13 @@ export async function parseDetail(
     // Track agent progress messages
     if (msg.type === 'progress' && msg.parentToolUseID) {
       const parentId = msg.parentToolUseID
+
+      // Track the model used by each agent
+      const progressModel = msg.data?.message?.message?.model
+      if (progressModel && parentId) {
+        agentProgressModel.set(parentId, progressModel)
+      }
+
       const usage = msg.data?.message?.message?.usage
       if (usage) {
         const existing = agentProgressTokens.get(parentId) ?? {
@@ -160,6 +168,35 @@ export async function parseDetail(
         existing.cacheReadInputTokens += usage.cache_read_input_tokens ?? 0
         existing.cacheCreationInputTokens += usage.cache_creation_input_tokens ?? 0
         agentProgressTokens.set(parentId, existing)
+
+        // Also add to session-level totals for accurate cost estimation
+        const tokens = {
+          inputTokens: usage.input_tokens ?? 0,
+          outputTokens: usage.output_tokens ?? 0,
+          cacheReadInputTokens: usage.cache_read_input_tokens ?? 0,
+          cacheCreationInputTokens: usage.cache_creation_input_tokens ?? 0,
+        }
+
+        totalTokens.inputTokens += tokens.inputTokens
+        totalTokens.outputTokens += tokens.outputTokens
+        totalTokens.cacheReadInputTokens += tokens.cacheReadInputTokens
+        totalTokens.cacheCreationInputTokens += tokens.cacheCreationInputTokens
+
+        // Add to per-model tracking using model from progress message
+        const modelId = msg.data?.message?.message?.model ?? 'unknown'
+        if (modelId !== 'unknown') {
+          const modelExisting = tokensByModel[modelId] ?? {
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          }
+          modelExisting.inputTokens += tokens.inputTokens
+          modelExisting.outputTokens += tokens.outputTokens
+          modelExisting.cacheReadInputTokens += tokens.cacheReadInputTokens
+          modelExisting.cacheCreationInputTokens += tokens.cacheCreationInputTokens
+          tokensByModel[modelId] = modelExisting
+        }
       }
 
       // Track tool calls within agent progress
@@ -371,6 +408,11 @@ export async function parseDetail(
     const progressTools = agentProgressToolCalls.get(agent.toolUseId)
     if (progressTools && !agent.toolCalls) {
       agent.toolCalls = progressTools
+    }
+    // Set actual model from progress data (overrides the requested model from Task input)
+    const actualModel = agentProgressModel.get(agent.toolUseId)
+    if (actualModel) {
+      agent.model = actualModel
     }
   }
 
