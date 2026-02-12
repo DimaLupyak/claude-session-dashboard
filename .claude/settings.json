@@ -56,45 +56,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit.sh\" \"$CLAUDE_FILE_PATH\"",
-            "timeout": 15000,
-            "statusMessage": "Auto-linting..."
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/on-stop.sh\"",
-            "timeout": 30000,
-            "statusMessage": "Running stop checks..."
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/task-completed.sh\"",
-            "timeout": 30000,
-            "statusMessage": "Running quality gate..."
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "",
