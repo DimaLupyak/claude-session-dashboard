@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { readFile, access, stat } from 'node:fs/promises';
 import { resolve, join, extname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { exec } from 'node:child_process';
 import { homedir } from 'node:os';
 
@@ -93,7 +93,7 @@ const MIME_TYPES = {
 
 process.env.NODE_ENV = 'production';
 
-const serverModule = await import(join(distDir, 'server', 'server.js'));
+const serverModule = await import(pathToFileURL(join(distDir, 'server', 'server.js')).href);
 const appServer = serverModule.default;
 
 async function tryServeStatic(pathname) {
