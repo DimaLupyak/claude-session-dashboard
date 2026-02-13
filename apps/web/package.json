@@ -1,16 +1,44 @@
 {
   "name": "claude-session-dashboard",
   "version": "0.1.0",
-  "private": true,
+  "description": "Local observability dashboard for Claude Code sessions",
   "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/nicobailon/claude-session-dashboard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicobailon/claude-session-dashboard.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "dashboard",
+    "session",
+    "observability",
+    "ai",
+    "anthropic"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "claude-dashboard": "./bin/cli.mjs",
+    "claude-session-dashboard": "./bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "start": "node ./bin/cli.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.75.0",

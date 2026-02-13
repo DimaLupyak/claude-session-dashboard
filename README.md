@@ -33,19 +33,46 @@ Claude Code stores session data locally in `~/.claude/projects/`, but there's no
 
 ## Quick Start
 
+### Using npx (recommended)
+
 ```bash
-# Clone the repo
-git clone https://github.com/DimaLupyak/claude-session-dashboard.git
+npx claude-session-dashboard
+```
+
+### Using npm (global install)
+
+```bash
+npm install -g claude-session-dashboard
+claude-dashboard
+```
+
+### Using Docker
+
+```bash
+docker run -v ~/.claude:/home/node/.claude:ro -p 3000:3000 ghcr.io/nicobailon/claude-session-dashboard
+```
+
+### From Source
+
+```bash
+git clone https://github.com/nicobailon/claude-session-dashboard.git
 cd claude-session-dashboard/apps/web
-
-# Install dependencies
 npm install
-
-# Start the dev server
-npm run dev
+npm run build
+npm start
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### CLI Options
+
+```
+  -p, --port <number>   Port to listen on (default: 3000)
+  --host <hostname>     Host to bind to (default: localhost)
+  -o, --open            Open browser after starting
+  -v, --version         Show version number
+  -h, --help            Show this help message
+```
 
 > **Note:** The dashboard runs entirely on localhost and only reads files from `~/.claude`. It never modifies any Claude Code data.
 

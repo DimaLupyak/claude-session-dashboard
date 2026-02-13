@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.output
+**/.vinxi
+.git
+**/*.md
+docs/
+.claude/
+**/.env
+**/.env.*
+**/.tanstack
+.playwright-mcp/
+.playwright/
+**/.DS_Store
+*.png

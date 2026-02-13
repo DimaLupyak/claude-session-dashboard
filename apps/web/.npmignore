@@ -1,0 +1,12 @@
+src/
+docs/
+tests/
+*.test.ts
+*.test.tsx
+vite.config.ts
+vitest.config.ts
+tsconfig*.json
+.claude/
+.env*
+.gitignore
+node_modules/
