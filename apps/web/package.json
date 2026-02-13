@@ -1,6 +1,6 @@
 {
   "name": "claude-session-dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local observability dashboard for Claude Code sessions",
   "type": "module",
   "license": "MIT",
@@ -28,7 +28,8 @@
   "files": [
     "bin/",
     "dist/",
-    "LICENSE"
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "dev": "vite",
