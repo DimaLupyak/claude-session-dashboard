@@ -49,13 +49,13 @@ claude-dashboard
 ### Using Docker
 
 ```bash
-docker run -v ~/.claude:/home/node/.claude:ro -p 3000:3000 ghcr.io/nicobailon/claude-session-dashboard
+docker run -v ~/.claude:/home/node/.claude:ro -p 3000:3000 ghcr.io/dlupiak/claude-session-dashboard
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/nicobailon/claude-session-dashboard.git
+git clone https://github.com/dlupiak/claude-session-dashboard.git
 cd claude-session-dashboard/apps/web
 npm install
 npm run build

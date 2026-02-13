@@ -4,10 +4,10 @@
   "description": "Local observability dashboard for Claude Code sessions",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/nicobailon/claude-session-dashboard",
+  "homepage": "https://github.com/dlupiak/claude-session-dashboard",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicobailon/claude-session-dashboard.git"
+    "url": "https://github.com/dlupiak/claude-session-dashboard.git"
   },
   "keywords": [
     "claude",
