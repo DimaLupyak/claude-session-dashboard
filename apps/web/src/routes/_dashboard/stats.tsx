@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { statsQuery } from '@/features/stats/stats.queries'
 import { ActivityChart } from '@/features/stats/ActivityChart'
+import { ContributionHeatmap } from '@/features/stats/ContributionHeatmap'
 import { TokenTrendChart } from '@/features/stats/TokenTrendChart'
 import { ModelUsageChart } from '@/features/stats/ModelUsageChart'
 import { HourlyDistribution } from '@/features/stats/HourlyDistribution'
@@ -211,8 +212,16 @@ function StatsOverview({
         />
       </div>
 
-      {/* Charts */}
+      {/* Contribution heatmap */}
       <div className="mt-6">
+        <ContributionHeatmap
+          dailyActivity={stats.dailyActivity}
+          dailyModelTokens={stats.dailyModelTokens}
+        />
+      </div>
+
+      {/* Charts */}
+      <div className="mt-4">
         <ActivityChart data={stats.dailyActivity} />
       </div>
 

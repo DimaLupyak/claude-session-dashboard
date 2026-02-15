@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 const STORAGE_KEY = 'claude-dashboard:page-size'
 const VALID_SIZES = [5, 10, 25, 50] as const
@@ -10,6 +10,20 @@ function isValidSize(value: number): value is ValidPageSize {
   return (VALID_SIZES as readonly number[]).includes(value)
 }
 
+function readStoredPageSize(): number | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw !== null) {
+      const parsed = Number(raw)
+      if (isValidSize(parsed)) return parsed
+    }
+  } catch {
+    // localStorage may be unavailable
+  }
+  return null
+}
+
 interface PageSizePreference {
   /** The stored page size from localStorage, or null if not yet loaded / invalid / missing */
   storedPageSize: number | null
@@ -18,23 +32,8 @@ interface PageSizePreference {
 }
 
 export function usePageSizePreference(): PageSizePreference {
-  // Initialize with null for SSR safety — real value loaded in useEffect
-  const [storedPageSize, setStoredPageSize] = useState<number | null>(null)
-
-  // Read persisted preference on mount (client-side only)
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw !== null) {
-        const parsed = Number(raw)
-        if (isValidSize(parsed)) {
-          setStoredPageSize(parsed)
-        }
-      }
-    } catch {
-      // localStorage may be unavailable — stay with null
-    }
-  }, [])
+  // Use lazy initializer to read from localStorage on mount (client-side only)
+  const [storedPageSize, setStoredPageSize] = useState<number | null>(readStoredPageSize)
 
   const setPageSize = useCallback((size: number) => {
     if (!isValidSize(size)) return

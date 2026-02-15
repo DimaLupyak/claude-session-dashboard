@@ -1,4 +1,18 @@
-import { beforeEach } from 'vitest'
+import { beforeEach, expect } from 'vitest'
+import { cleanup } from '@testing-library/react'
+
+// Extend Vitest's expect with custom matchers
+expect.extend({
+  toBeInTheDocument(received) {
+    const pass = received != null && document.body.contains(received)
+    return {
+      pass,
+      message: () => pass
+        ? `expected element not to be in the document`
+        : `expected element to be in the document`,
+    }
+  },
+})
 
 // Custom localStorage implementation for tests
 class LocalStorageMock implements Storage {
@@ -39,9 +53,10 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Clear localStorage before each test
+// Clear localStorage and cleanup after each test
 beforeEach(() => {
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.clear()
   }
+  cleanup()
 })

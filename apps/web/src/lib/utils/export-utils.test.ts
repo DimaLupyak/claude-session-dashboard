@@ -345,7 +345,6 @@ describe('export-utils', () => {
       })
 
       const csv = modelUsageToCSV(stats)
-      const lines = csv.split('\n')
 
       // The field should be quoted
       expect(csv).toContain('"model\nwith\nnewlines"')

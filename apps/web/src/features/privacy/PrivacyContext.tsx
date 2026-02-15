@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from 'react'
@@ -10,6 +9,15 @@ import type { ReactNode } from 'react'
 import { anonymizePath as anonymizePathUtil } from './anonymize'
 
 const STORAGE_KEY = 'claude-dashboard:privacy-mode'
+
+function readStoredPrivacyMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 
 interface PrivacyContextValue {
   privacyMode: boolean
@@ -21,26 +29,14 @@ interface PrivacyContextValue {
 const PrivacyContext = createContext<PrivacyContextValue | null>(null)
 
 export function PrivacyProvider({ children }: { children: ReactNode }) {
-  // Initialize false for SSR safety — real value loaded in useEffect
-  const [privacyMode, setPrivacyMode] = useState(false)
+  // Use lazy initializer to read from localStorage on mount (client-side only)
+  const [privacyMode, setPrivacyMode] = useState(readStoredPrivacyMode)
 
   // Ref-based map for stable project name anonymization within a session.
   // Using a ref (not state) because the map is a lookup cache, not render-driving data.
   // The map grows as new project names are encountered and resets on toggle.
   const projectNameMapRef = useRef<Map<string, string>>(new Map())
   const nextIndexRef = useRef(1)
-
-  // Read persisted preference on mount (client-side only)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored === 'true') {
-        setPrivacyMode(true)
-      }
-    } catch {
-      // localStorage may be unavailable — stay with default
-    }
-  }, [])
 
   const togglePrivacyMode = useCallback(() => {
     setPrivacyMode((prev) => {

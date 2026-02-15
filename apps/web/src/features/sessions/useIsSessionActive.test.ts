@@ -45,7 +45,7 @@ describe('useIsSessionActive', () => {
 
     vi.mocked(ReactQuery.useQuery).mockReturnValue({
       data: activeSessions,
-    } as any)
+    } as ReturnType<typeof ReactQuery.useQuery>)
 
     const { result } = renderHook(() => useIsSessionActive('session-2'))
 
@@ -60,7 +60,7 @@ describe('useIsSessionActive', () => {
 
     vi.mocked(ReactQuery.useQuery).mockReturnValue({
       data: activeSessions,
-    } as any)
+    } as ReturnType<typeof ReactQuery.useQuery>)
 
     const { result } = renderHook(() => useIsSessionActive('session-999'))
 
@@ -70,7 +70,7 @@ describe('useIsSessionActive', () => {
   it('should return false when data is undefined', () => {
     vi.mocked(ReactQuery.useQuery).mockReturnValue({
       data: undefined,
-    } as any)
+    } as ReturnType<typeof ReactQuery.useQuery>)
 
     const { result } = renderHook(() => useIsSessionActive('session-1'))
 
@@ -80,7 +80,7 @@ describe('useIsSessionActive', () => {
   it('should return false when active sessions list is empty', () => {
     vi.mocked(ReactQuery.useQuery).mockReturnValue({
       data: [],
-    } as any)
+    } as ReturnType<typeof ReactQuery.useQuery>)
 
     const { result } = renderHook(() => useIsSessionActive('session-1'))
 
@@ -95,7 +95,7 @@ describe('useIsSessionActive', () => {
 
     vi.mocked(ReactQuery.useQuery).mockReturnValue({
       data: activeSessions,
-    } as any)
+    } as ReturnType<typeof ReactQuery.useQuery>)
 
     const { result: result1 } = renderHook(() => useIsSessionActive('session-active-1'))
     const { result: result2 } = renderHook(() => useIsSessionActive('session-active-2'))

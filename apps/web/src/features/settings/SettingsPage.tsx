@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { settingsQuery, useSettingsMutation } from './settings.queries'
 import {
@@ -12,20 +12,25 @@ import { PricingTableEditor } from './PricingTableEditor'
 
 export function SettingsPage() {
   const { data: settings, isLoading } = useQuery(settingsQuery)
+
+  if (isLoading || !settings) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 animate-pulse rounded bg-gray-800" />
+        <div className="h-64 animate-pulse rounded-xl bg-gray-900/50" />
+      </div>
+    )
+  }
+
+  return <SettingsForm settings={settings} />
+}
+
+function SettingsForm({ settings }: { settings: Settings }) {
   const mutation = useSettingsMutation()
 
-  const [tier, setTier] = useState<SubscriptionTierId>('pro')
-  const [overrides, setOverrides] = useState<Record<string, ModelPricingOverride>>({})
+  const [tier, setTier] = useState<SubscriptionTierId>(settings.subscriptionTier)
+  const [overrides, setOverrides] = useState<Record<string, ModelPricingOverride>>(settings.pricingOverrides)
   const [isDirty, setIsDirty] = useState(false)
-
-  // Sync form state when settings load
-  useEffect(() => {
-    if (settings) {
-      setTier(settings.subscriptionTier)
-      setOverrides(settings.pricingOverrides)
-      setIsDirty(false)
-    }
-  }, [settings])
 
   function handleTierChange(newTier: SubscriptionTierId) {
     setTier(newTier)
@@ -54,15 +59,6 @@ export function SettingsPage() {
         setIsDirty(false)
       },
     })
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-800" />
-        <div className="h-64 animate-pulse rounded-xl bg-gray-900/50" />
-      </div>
-    )
   }
 
   return (

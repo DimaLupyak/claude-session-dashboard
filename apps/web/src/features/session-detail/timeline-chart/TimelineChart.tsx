@@ -5,7 +5,7 @@ import type {
   TooltipItem,
   AgentLaneData,
 } from './timeline-types'
-import { getToolColor, shortenToolName } from './timeline-colors'
+import { getToolColor } from './timeline-colors'
 
 const LEFT_MARGIN = 90
 const RIGHT_MARGIN = 16
@@ -206,7 +206,6 @@ export function TimelineChart({ data, width, onHover }: Props) {
           y={agentLaneYs[i]}
           toX={toX}
           laneHeight={LANE_HEIGHT}
-          leftMargin={LEFT_MARGIN}
           onHover={onHover}
           getPosition={getPosition}
         />
@@ -336,7 +335,6 @@ function AgentLaneSVG({
   y,
   toX,
   laneHeight,
-  leftMargin,
   onHover,
   getPosition,
 }: {
@@ -344,7 +342,6 @@ function AgentLaneSVG({
   y: number
   toX: (relX: number) => number
   laneHeight: number
-  leftMargin: number
   onHover: Props['onHover']
   getPosition: (e: React.MouseEvent) => { x: number; y: number }
 }) {

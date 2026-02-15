@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { useState } from 'react'
 import {
   usePageSizePreference,
   VALID_SIZES,

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { calculateSessionCost, getMergedPricing } from './cost-calculator'
 import { DEFAULT_PRICING, DEFAULT_SETTINGS } from '@/features/settings/settings.types'
 import type { TokenUsage } from '@/lib/parsers/types'
-import type { Settings, ModelPricing } from '@/features/settings/settings.types'
+import type { Settings } from '@/features/settings/settings.types'
 
 describe('calculateSessionCost', () => {
   it('calculates cost for single model with known pricing', () => {

@@ -36,6 +36,7 @@ export interface Turn {
 export interface ToolCall {
   toolName: string
   toolUseId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw JSONL tool input has arbitrary shape
   input?: Record<string, any>
 }
 
@@ -197,6 +198,7 @@ export interface RawJsonlMessage {
       text?: string
       name?: string
       id?: string
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw JSONL content has arbitrary shape
       input?: Record<string, any>
       // tool_result fields
       tool_use_id?: string
@@ -216,6 +218,7 @@ export interface RawJsonlMessage {
       type?: string
       message?: {
         model?: string
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw JSONL content has arbitrary shape
         content?: Array<{ type: string; name?: string; id?: string; input?: Record<string, any> }>
         usage?: {
           input_tokens?: number
