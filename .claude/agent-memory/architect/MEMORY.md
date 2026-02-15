@@ -36,3 +36,16 @@
 - **activeSessionsQuery** already polls at 3s -- reuse for any real-time feature
 - `scanAllSessions()` returns mtime-cached results -- safe to call frequently
 - Cost estimation uses `normalizeModelId()` from settings.types to match pricing table
+
+## Path Configuration
+- `claude-path.ts` is the SINGLE source of truth for all `~/.claude` paths
+- `CLAUDE_DIR` is computed once at module load time (constant)
+- All scanners/parsers use `getClaudeDir()`, `getProjectsDir()`, `getStatsPath()` from this file
+- Settings writes go to `~/.claude-dashboard/` (separate from `~/.claude`)
+- Settings path uses `os.homedir()` directly in `settings.server.ts`, NOT claude-path.ts
+
+## CI/CD
+- GitHub Actions in `.github/workflows/ci.yml` with 3 jobs: typecheck, test, build
+- All jobs use Node 22, `npm ci`, working-directory `./apps/web`
+- Vitest config is separate from vite.config.ts (to avoid plugin conflicts)
+- Test setup in `src/test/setup.ts` (localStorage mock)

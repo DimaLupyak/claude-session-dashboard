@@ -8,3 +8,7 @@ dist/
 .env.*
 .claude/settings.local.json
 .playwright-mcp/
+playwright-report/
+test-results/
+blob-report/
+e2e/screenshots/

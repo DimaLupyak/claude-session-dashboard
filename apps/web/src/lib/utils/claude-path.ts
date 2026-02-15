@@ -1,7 +1,14 @@
 import * as path from 'node:path'
 import * as os from 'node:os'
 
-const CLAUDE_DIR = path.join(os.homedir(), '.claude')
+function resolveClaudeDir(): string {
+  if (process.env.CLAUDE_HOME) {
+    return path.resolve(process.env.CLAUDE_HOME)
+  }
+  return path.join(os.homedir(), '.claude')
+}
+
+const CLAUDE_DIR = resolveClaudeDir()
 
 export function getClaudeDir(): string {
   return CLAUDE_DIR
