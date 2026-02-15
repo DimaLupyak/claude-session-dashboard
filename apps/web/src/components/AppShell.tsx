@@ -1,6 +1,7 @@
 import { Link, useMatches } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { PrivacyToggle } from '@/features/privacy/PrivacyToggle'
+import { ActiveSessionsBadge } from '@/features/sessions/ActiveSessionsBadge'
 
 const NAV_ITEMS = [
   { to: '/sessions', label: 'Sessions', icon: '>' },
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {item.icon}
                 </span>
                 {item.label}
+                {item.to === '/sessions' && <ActiveSessionsBadge />}
               </Link>
             )
           })}

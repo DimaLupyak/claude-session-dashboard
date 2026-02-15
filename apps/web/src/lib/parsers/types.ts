@@ -166,6 +166,7 @@ export const StatsCacheSchema = z.object({
 
 export type StatsCache = z.infer<typeof StatsCacheSchema>
 export type DailyActivity = z.infer<typeof DailyActivitySchema>
+export type DailyModelTokens = z.infer<typeof DailyModelTokensSchema>
 export type ModelUsage = z.infer<typeof ModelUsageSchema>
 
 // --- History (from ~/.claude/history.jsonl) ---

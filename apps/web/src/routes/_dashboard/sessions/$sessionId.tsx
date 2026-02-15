@@ -9,7 +9,11 @@ import { AgentsSkillsPanel } from '@/features/session-detail/AgentsSkillsPanel'
 import { TasksPanel } from '@/features/session-detail/TasksPanel'
 import { CostEstimationPanel } from '@/features/cost-estimation/CostEstimationPanel'
 import { CostSummaryLine } from '@/features/cost-estimation/CostSummaryLine'
+import { ActiveSessionBanner } from '@/features/session-detail/ActiveSessionBanner'
+import { useIsSessionActive } from '@/features/sessions/useIsSessionActive'
 import { formatDuration, formatDateTime } from '@/lib/utils/format'
+import { sessionToJSON, downloadFile } from '@/lib/utils/export-utils'
+import { ExportDropdown } from '@/components/ExportDropdown'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
 import { z } from 'zod'
 
@@ -27,9 +31,10 @@ function SessionDetailPage() {
   const { project = '' } = Route.useSearch()
 
   const { privacyMode, anonymizeProjectName } = usePrivacy()
+  const isActive = useIsSessionActive(sessionId)
 
   const { data: detail, isLoading, error } = useQuery(
-    sessionDetailQuery(sessionId, project),
+    sessionDetailQuery(sessionId, project, isActive),
   )
 
   if (isLoading) {
@@ -66,6 +71,8 @@ function SessionDetailPage() {
 
   return (
     <div>
+      {isActive && <ActiveSessionBanner />}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -102,9 +109,24 @@ function SessionDetailPage() {
             </div>
           )}
         </div>
-        <span className="font-mono text-xs text-gray-600">
-          {sessionId.slice(0, 8)}
-        </span>
+        <div className="flex items-center gap-3">
+          <ExportDropdown
+            options={[
+              {
+                label: 'Export Session (JSON)',
+                onClick: () =>
+                  downloadFile(
+                    sessionToJSON(detail),
+                    `session-${sessionId.slice(0, 8)}.json`,
+                    'application/json',
+                  ),
+              },
+            ]}
+          />
+          <span className="font-mono text-xs text-gray-600">
+            {sessionId.slice(0, 8)}
+          </span>
+        </div>
       </div>
 
       {/* Stats grid */}
