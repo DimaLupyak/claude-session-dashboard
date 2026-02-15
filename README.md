@@ -1,35 +1,75 @@
 # Claude Session Dashboard
 
-A read-only, local observability dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Scans your `~/.claude` directory to visualize session details, tool usage, agent dispatches, token consumption, and execution timelines.
+A read-only, local observability dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Scans your `~/.claude` directory to visualize session history, tool usage, token consumption, cost estimates, and activity trends -- all without sending data anywhere.
 
-![Sessions Page](sessions-page.png)
+![Sessions Page](screenshots/sessions-page.png)
 
 ## Why?
 
-Claude Code stores session data locally in `~/.claude/projects/`, but there's no built-in way to browse, search, or analyze past sessions. This dashboard gives you visibility into:
+Claude Code stores all session data locally in `~/.claude/projects/`, but there is no built-in way to browse, search, or analyze past sessions. As you accumulate hundreds of sessions across dozens of projects, questions start piling up:
 
-- How long sessions run and how many tokens they consume
-- Which tools and agents are used most frequently
-- Timeline visualization of tool calls and agent dispatches
-- Context window utilization and growth patterns
-- Active vs completed session status
+- How many tokens did that refactoring session actually use?
+- Which tools does Claude call most often in my codebase?
+- How much am I spending per project, per day, per model?
+- Is the context window filling up mid-session?
+- When am I most active -- mornings or late nights?
+
+This dashboard gives you answers. It reads your local session files, parses the JSONL logs, and presents everything in a fast, searchable web UI that runs entirely on your machine.
 
 ## Features
 
-- **Sessions list** with search, status filters, project filters, and pagination
-- **Session detail** with context window breakdown, tool usage stats, agent dispatch history
-- **Cost estimation** — per-session and per-agent cost estimates based on Anthropic API pricing, with per-model and per-category breakdowns (input/output/cache)
-- **Settings page** — configure API pricing per model and subscription tier, stored in `~/.claude-dashboard/settings.json`
-- **Timeline chart** showing tool calls, agent runs, and skill invocations on a Gantt-style timeline with zoom controls
-- **Stats page** with aggregate metrics, total estimated cost, and model usage across all sessions
-- **Live updates** — active sessions refresh automatically (3s polling for status, 30s for full data)
-- **Privacy mode** — toggle to anonymize paths and usernames for safe screenshot sharing
+**Session browsing and search**
+- Full-text search across session names, projects, and branches
+- Filter by status (active / completed), project, model, and date range
+- Sortable columns with pagination
+- Active session indicator with real-time status polling
 
-![Session Detail](session-detail-full.png)
+**Session detail view**
+- Context window utilization breakdown (input, output, cache read, cache creation)
+- Tool usage frequency and duration statistics
+- Agent dispatch history with nested tool calls
+- Gantt-style timeline chart with zoom controls for tool calls, agent runs, and skill invocations
+- Per-session and per-agent cost estimates with per-model and per-category breakdowns
 
-![Stats Page](stats-page.png)
+![Session Detail](screenshots/session-detail-full.png)
 
-![Settings Page](settings-page.png)
+**Analytics and stats**
+- GitHub-style contribution heatmap showing token usage intensity over the past year
+- Token usage over time -- stacked area chart with daily/weekly toggle, top 5 models + "Other"
+- Model usage distribution across all sessions
+- Hourly activity distribution chart
+- Aggregate metrics: total sessions, messages, tokens, estimated cost
+
+![Stats Overview](screenshots/stats-overview.png)
+
+**Per-project analytics**
+- Dedicated "Projects" tab with sortable table
+- Sessions, messages, tokens, and duration aggregated per project
+- Drill-down links to filtered session lists
+
+![Per-Project Analytics](screenshots/stats-projects.png)
+
+**Cost estimation**
+- Configurable API pricing per model (Claude Sonnet 4, Opus 4, Haiku, etc.)
+- Subscription tier support (Free, Pro, Max 5x/20x) with appropriate rate adjustments
+- Settings persisted to `~/.claude-dashboard/settings.json`
+
+![Settings Page](screenshots/settings-page.png)
+
+**Data export**
+- Export stats and session data in CSV or JSON format
+- Four export formats: session summaries, model usage, daily activity, project analytics
+- Client-side export -- no server round-trip needed
+
+**Real-time monitoring**
+- Active sessions badge in the sidebar with 3-second status polling
+- Active session banner on detail pages with adaptive refresh intervals
+- Automatic data refresh for in-progress sessions
+
+**Privacy mode**
+- Toggle to anonymize project names, file paths, branch names, and usernames
+- Analytics data anonymized consistently across all views
+- Safe for screenshot sharing and presentations
 
 ## Quick Start
 
@@ -52,7 +92,15 @@ claude-dashboard
 docker run -v ~/.claude:/home/node/.claude:ro -p 3000:3000 ghcr.io/dlupiak/claude-session-dashboard
 ```
 
-### From Source
+Or with Docker Compose:
+
+```bash
+git clone https://github.com/dlupiak/claude-session-dashboard.git
+cd claude-session-dashboard
+docker compose up
+```
+
+### From source
 
 ```bash
 git clone https://github.com/dlupiak/claude-session-dashboard.git
@@ -64,7 +112,7 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### CLI Options
+## CLI Options
 
 ```
   -p, --port <number>   Port to listen on (default: 3000)
@@ -74,46 +122,52 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
   -h, --help            Show this help message
 ```
 
-> **Note:** The dashboard runs entirely on localhost and only reads files from `~/.claude`. It never modifies any Claude Code data.
+> **Note:** The dashboard runs entirely on localhost and only reads files from `~/.claude`. It never modifies any Claude Code data and never sends data over the network.
 
 ## Tech Stack
 
-- [TanStack Start](https://tanstack.com/start) — SSR framework on Vite
-- [TanStack Router](https://tanstack.com/router) — file-based routing with type-safe search params
-- [TanStack Query](https://tanstack.com/query) — data fetching with automatic refetch
-- [Tailwind CSS v4](https://tailwindcss.com/) — utility-first styling
-- [Recharts](https://recharts.org/) — charting library for timeline and stats
-- [Zod](https://zod.dev/) — runtime validation for server functions and URL params
+- [TanStack Start](https://tanstack.com/start) -- SSR framework on Vite
+- [TanStack Router](https://tanstack.com/router) -- file-based routing with type-safe search params
+- [TanStack Query](https://tanstack.com/query) -- data fetching with caching and automatic background refetch
+- [Tailwind CSS v4](https://tailwindcss.com/) -- utility-first styling with CSS-first configuration
+- [Recharts](https://recharts.org/) -- composable charting library for timeline, heatmap, and stats visualizations
+- [Zod](https://zod.dev/) -- runtime validation for server functions and URL params
+- Node.js >= 18
 
 ## Project Structure
 
 ```
 apps/web/src/
-  routes/                    # File-based routes (TanStack Router)
+  routes/                        # File-based routes (TanStack Router)
     _dashboard/
       sessions/
-        index.tsx            # Sessions list page
-        $sessionId.tsx       # Session detail page
-      stats.tsx              # Aggregate stats page
-      settings.tsx           # Pricing & account settings page
-  features/                  # Vertical Slice Architecture
-    sessions/                # Sessions list feature
-    session-detail/          # Session detail feature
-    stats/                   # Stats feature
-    cost-estimation/         # Cost calculation & display
-    settings/                # Pricing config & settings persistence
+        index.tsx                # Sessions list page
+        $sessionId.tsx           # Session detail page
+      stats.tsx                  # Stats + per-project analytics page
+      settings.tsx               # Settings page
+  features/                      # Vertical Slice Architecture
+    sessions/                    # Session list, filters, active badge
+    session-detail/              # Session detail, timeline, context window
+    stats/                       # Activity chart, heatmap, token trends, model usage
+    project-analytics/           # Per-project aggregated metrics
+    cost-estimation/             # Cost calculation and display
+    settings/                    # Subscription tier, pricing editor
+    privacy/                     # Privacy mode toggle and anonymization
   lib/
-    scanner/                 # Filesystem scanner for ~/.claude
-    parsers/                 # JSONL session file parsers
-    utils/                   # Shared utilities
+    scanner/                     # Filesystem scanner for ~/.claude
+    parsers/                     # JSONL session file parsers
+    cache/                       # Persistent disk cache (heatmap data)
+    utils/                       # Formatting, export utilities
+  components/                    # Shared UI components (ExportDropdown, etc.)
 ```
 
 ## How It Works
 
-1. **Scanning** — The server reads `~/.claude/projects/` to discover all session `.jsonl` files. An mtime-based cache avoids re-parsing unchanged files.
-2. **Parsing** — Session files are parsed to extract metadata (project, branch, duration, model), tool calls, agent dispatches, token usage, and errors.
-3. **Server Functions** — TanStack Start server functions expose parsed data to the client via type-safe RPC.
-4. **React Query** — The UI fetches data through React Query with automatic background refetch for live updates.
+1. **Scanning** -- The server reads `~/.claude/projects/` to discover all session `.jsonl` files. An mtime-based cache avoids re-parsing unchanged files.
+2. **Parsing** -- Session files are parsed to extract metadata (project, branch, duration, model), tool calls, agent dispatches, token usage, and errors.
+3. **Server Functions** -- TanStack Start server functions (`createServerFn`) expose parsed data to the client via type-safe RPC. All file I/O stays on the server.
+4. **React Query** -- The UI fetches data through React Query with automatic background refetch for live updates. Active sessions use adaptive polling intervals.
+5. **Caching** -- Parsed session summaries and heatmap data are cached in memory (mtime-based invalidation) and on disk (`~/.claude-dashboard/cache/`) for fast startup.
 
 ## Development
 
@@ -123,8 +177,17 @@ cd apps/web
 npm run dev          # Dev server on localhost:3000
 npm run build        # Production build
 npm run typecheck    # TypeScript type checking
-npm run test         # Run tests (Vitest)
+npm run lint         # ESLint
+npm run test         # Unit tests (Vitest)
+npm run e2e          # End-to-end tests (Playwright)
 ```
+
+## Links
+
+- [GitHub](https://github.com/dlupiak/claude-session-dashboard)
+- [npm](https://www.npmjs.com/package/claude-session-dashboard)
+- [Docker](https://github.com/dlupiak/claude-session-dashboard/pkgs/container/claude-session-dashboard)
+- [Issues](https://github.com/dlupiak/claude-session-dashboard/issues)
 
 ## License
 
