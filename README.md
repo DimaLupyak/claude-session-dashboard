@@ -2,6 +2,10 @@
 
 A read-only, local observability dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Scans your `~/.claude` directory to visualize session history, tool usage, token consumption, cost estimates, and activity trends -- all without sending data anywhere.
 
+<p align="center">
+  <img src="screenshots/demo.gif" alt="Claude Session Dashboard walkthrough" width="960">
+</p>
+
 ![Sessions Page](screenshots/sessions-page.png)
 
 ## Why?
