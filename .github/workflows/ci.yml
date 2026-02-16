@@ -127,7 +127,7 @@ jobs:
         run: npm run e2e
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
@@ -135,7 +135,7 @@ jobs:
           retention-days: 14
 
       - name: Upload E2E screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:
           name: e2e-screenshots
