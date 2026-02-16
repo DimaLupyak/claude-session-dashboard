@@ -45,7 +45,7 @@ export function ModelUsageChart({ data }: { data: ModelUsage }) {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => formatTokenCount(value)}
+              formatter={(value) => formatTokenCount(value as number)}
               contentStyle={{
                 backgroundColor: '#1c1c1a',
                 border: '1px solid #3d3b36',

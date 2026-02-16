@@ -176,7 +176,7 @@ export function ContextWindowPanel({ contextWindow, tokens }: Props) {
                   fontSize: '11px',
                 }}
                 labelFormatter={(v) => `Turn ${v}`}
-                formatter={(v: number) => [formatTokenCount(v), 'Context']}
+                formatter={(v) => [formatTokenCount(v as number), 'Context']}
               />
               <ReferenceLine
                 y={contextLimit}
