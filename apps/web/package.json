@@ -74,7 +74,7 @@
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.55.0",
     "vite": "^7.3.0",
-    "vite-tsconfig-paths": "^4.3.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.0.18"
   }
 }
