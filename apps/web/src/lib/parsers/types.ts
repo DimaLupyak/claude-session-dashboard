@@ -67,6 +67,8 @@ export interface SkillInvocation {
   args: string | null
   timestamp: string
   toolUseId: string
+  /** How the skill was loaded: 'injected' = from agent frontmatter via <command-name>, 'invoked' = explicit Skill tool call */
+  source?: 'injected' | 'invoked'
 }
 
 export interface TaskItem {

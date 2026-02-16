@@ -19,9 +19,9 @@ export function AgentsSkillsPanel({
   // Build combined skills list: session-level + agent-level, sorted by timestamp
   const allSkills = useMemo(() => {
     return [
-      ...skills.map((s) => ({ ...s, source: null as string | null })),
+      ...skills.map((s) => ({ ...s, agentSource: null as string | null })),
       ...agents.flatMap((a) =>
-        (a.skills ?? []).map((s) => ({ ...s, source: a.subagentType })),
+        (a.skills ?? []).map((s) => ({ ...s, agentSource: a.subagentType })),
       ),
     ].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }, [skills, agents])
@@ -191,9 +191,16 @@ export function AgentsSkillsPanel({
                     {a.skills.map((s, si) => (
                       <span
                         key={`as-${si}`}
-                        className="inline-flex items-center rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-mono text-amber-300"
+                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono ${
+                          s.source === 'injected'
+                            ? 'bg-gray-800/60 text-gray-400'
+                            : 'bg-amber-500/15 text-amber-300'
+                        }`}
                       >
                         /{s.skill}
+                        {s.source === 'injected' && (
+                          <span className="text-[9px] text-gray-500">context</span>
+                        )}
                       </span>
                     ))}
                   </div>
@@ -210,31 +217,43 @@ export function AgentsSkillsPanel({
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
             Skill Invocations
           </p>
-          {allSkills.map((s, i) => (
-            <div
-              key={`s-${i}`}
-              className="flex items-start gap-2 rounded bg-gray-950/40 px-2 py-1.5"
-            >
-              <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-                /{s.skill}
-              </span>
-              {s.source && (
-                <span className="shrink-0 text-[10px] text-gray-500">
-                  via {s.source}
+          {allSkills.map((s, i) => {
+            const isInjected = s.source === 'injected'
+            return (
+              <div
+                key={`s-${i}`}
+                className="flex items-start gap-2 rounded bg-gray-950/40 px-2 py-1.5"
+              >
+                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  isInjected
+                    ? 'bg-gray-800/60 text-gray-400'
+                    : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  /{s.skill}
                 </span>
-              )}
-              {s.args && (
-                <span className="min-w-0 flex-1 truncate text-xs font-mono text-gray-500">
-                  {s.args}
-                </span>
-              )}
-              {s.timestamp && (
-                <span className="ml-auto shrink-0 text-[10px] text-gray-600">
-                  {format(new Date(s.timestamp), 'HH:mm:ss')}
-                </span>
-              )}
-            </div>
-          ))}
+                {isInjected && (
+                  <span className="shrink-0 rounded bg-gray-800/40 px-1 py-0.5 text-[9px] text-gray-500">
+                    context
+                  </span>
+                )}
+                {s.agentSource && (
+                  <span className="shrink-0 text-[10px] text-gray-500">
+                    via {s.agentSource}
+                  </span>
+                )}
+                {s.args && (
+                  <span className="min-w-0 flex-1 truncate text-xs font-mono text-gray-500">
+                    {s.args}
+                  </span>
+                )}
+                {s.timestamp && (
+                  <span className="ml-auto shrink-0 text-[10px] text-gray-600">
+                    {format(new Date(s.timestamp), 'HH:mm:ss')}
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

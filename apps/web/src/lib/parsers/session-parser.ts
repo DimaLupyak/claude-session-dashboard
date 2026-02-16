@@ -502,9 +502,22 @@ export async function readSessionMessages(
 
 // --- Subagent skill parsing ---
 
+/** Regex to extract skill name from <command-name>SKILL_NAME</command-name> */
+const COMMAND_NAME_RE = /<command-name>([^<]+)<\/command-name>/
+
 /**
  * Lightweight single-pass parser that reads a subagent JSONL file
- * and extracts only Skill tool_use blocks from assistant messages.
+ * and extracts skills. Detects two patterns:
+ *
+ * 1. **Injected skills** (from agent frontmatter): user messages where
+ *    content[0].text contains `<command-name>SKILL_NAME</command-name>`.
+ *    These appear in the first ~20 messages of the subagent JSONL.
+ *
+ * 2. **Invoked skills** (legacy): assistant messages with `Skill` tool_use blocks.
+ *
+ * Only the first 20 messages are checked for injected skills (they always
+ * appear near the start). Invoked skills are scanned across the entire file
+ * for backward compatibility.
  */
 async function parseSubagentSkills(
   subagentFilePath: string,
@@ -514,21 +527,52 @@ async function parseSubagentSkills(
   const stream = fs.createReadStream(subagentFilePath, { encoding: 'utf-8' })
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
 
+  let lineCount = 0
+  const MAX_LINES_FOR_INJECTED = 20
+
   for await (const line of rl) {
     const msg = safeParse(line)
-    if (!msg || msg.type !== 'assistant' || !msg.message?.content) continue
+    if (!msg) continue
+    lineCount++
 
-    for (const block of msg.message.content) {
-      if (block.type !== 'tool_use' || block.name !== 'Skill') continue
-      const inp = block.input as Record<string, unknown> | undefined
-      if (!inp?.skill) continue
+    // Pattern 1: Injected skills from agent frontmatter (user messages with <command-name>)
+    if (lineCount <= MAX_LINES_FOR_INJECTED && msg.type === 'user' && msg.message?.content) {
+      const content = msg.message.content
+      if (Array.isArray(content) && content.length >= 1) {
+        const firstBlock = content[0]
+        if (firstBlock.type === 'text' && firstBlock.text) {
+          const match = COMMAND_NAME_RE.exec(firstBlock.text)
+          if (match) {
+            const skillName = match[1].trim()
+            if (skillName) {
+              skills.push({
+                skill: skillName,
+                args: null,
+                timestamp: msg.timestamp ?? '',
+                toolUseId: `injected-${skillName}-${msg.timestamp ?? lineCount}`,
+                source: 'injected',
+              })
+            }
+          }
+        }
+      }
+    }
 
-      skills.push({
-        skill: String(inp.skill),
-        args: inp.args ? String(inp.args) : null,
-        timestamp: msg.timestamp ?? '',
-        toolUseId: block.id ?? '',
-      })
+    // Pattern 2: Legacy Skill tool_use blocks in assistant messages
+    if (msg.type === 'assistant' && msg.message?.content) {
+      for (const block of msg.message.content) {
+        if (block.type !== 'tool_use' || block.name !== 'Skill') continue
+        const inp = block.input as Record<string, unknown> | undefined
+        if (!inp?.skill) continue
+
+        skills.push({
+          skill: String(inp.skill),
+          args: inp.args ? String(inp.args) : null,
+          timestamp: msg.timestamp ?? '',
+          toolUseId: block.id ?? '',
+          source: 'invoked',
+        })
+      }
     }
   }
 

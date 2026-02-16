@@ -42,158 +42,164 @@ describe('parseSubagentSkills', () => {
     return filePath
   }
 
-  describe('empty file', () => {
-    it('should return empty array for empty file', async () => {
-      const sessionPath = createSessionJSONL([
+  function createSubagentFile(sessionPath: string, agentId: string, lines: string[]): string {
+    const subagentDir = sessionPath.replace(/\.jsonl$/, '')
+    const subagentsDir = path.join(subagentDir, 'subagents')
+    fs.mkdirSync(subagentsDir, { recursive: true })
+    const subagentPath = path.join(subagentsDir, `agent-${agentId}.jsonl`)
+    fs.writeFileSync(subagentPath, lines.join('\n'), 'utf-8')
+    testFiles.push(subagentPath)
+    return subagentPath
+  }
+
+  function makeSessionWithAgent(agentId: string): string[] {
+    return [
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: '2026-01-01T10:00:00Z',
+        message: {
+          model: 'claude-opus-4-6',
+          content: [
+            {
+              type: 'tool_use',
+              name: 'Task',
+              id: 'task1',
+              input: { subagent_type: 'implementer', description: 'Do work' },
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: 'progress',
+        timestamp: '2026-01-01T10:01:00Z',
+        parentToolUseID: 'task1',
+        data: { agentId },
+      }),
+    ]
+  }
+
+  /** Helper to create a <command-name> style injected skill user message */
+  function makeInjectedSkillMessage(skillName: string, timestamp: string): string {
+    return JSON.stringify({
+      type: 'user',
+      timestamp,
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: `<command-message>${skillName}</command-message>\n<command-name>${skillName}</command-name>\n<skill-format>true</skill-format>`,
+          },
+          {
+            type: 'text',
+            text: `Base directory for this skill: /path/to/.claude/skills/${skillName}\n\n# ${skillName} Skill Content\n...`,
+          },
+        ],
+      },
+    })
+  }
+
+  /** Helper to create a legacy Skill tool_use assistant message */
+  function makeLegacySkillMessage(
+    skillName: string,
+    timestamp: string,
+    toolUseId: string,
+    args?: string,
+  ): string {
+    return JSON.stringify({
+      type: 'assistant',
+      timestamp,
+      message: {
+        model: 'claude-opus-4-6',
+        content: [
+          {
+            type: 'tool_use',
+            name: 'Skill',
+            id: toolUseId,
+            input: args ? { skill: skillName, args } : { skill: skillName },
+          },
+        ],
+      },
+    })
+  }
+
+  describe('injected skills via <command-name>', () => {
+    it('should detect a single injected skill from user messages', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-001'))
+
+      createSubagentFile(sessionPath, 'agent-001', [
         JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
+          type: 'user',
+          timestamp: '2026-01-01T10:01:00Z',
           message: {
-            model: 'claude-opus-4-6',
             content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'implementer', description: 'Do work' },
-              },
+              { type: 'text', text: 'You are a Senior Full-Stack Engineer...' },
             ],
           },
         }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-001' },
-        }),
+        makeInjectedSkillMessage('testing', '2026-01-01T10:01:01Z'),
       ])
-
-      // Create empty subagent file
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const emptySubagentPath = path.join(subagentsDir, 'agent-agent-001.jsonl')
-      fs.writeFileSync(emptySubagentPath, '', 'utf-8')
-      testFiles.push(emptySubagentPath)
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
       expect(result.agents).toHaveLength(1)
       expect(result.agents[0].agentId).toBe('agent-001')
-      expect(result.agents[0].skills).toEqual([])
-    })
-  })
+      expect(result.agents[0].skills).toHaveLength(1)
 
-  describe('file with no Skill blocks', () => {
-    it('should return empty array when file has no Skill tool_use blocks', async () => {
-      const sessionPath = createSessionJSONL([
+      const skill = result.agents[0].skills![0]
+      expect(skill.skill).toBe('testing')
+      expect(skill.args).toBeNull()
+      expect(skill.source).toBe('injected')
+      expect(skill.timestamp).toBe('2026-01-01T10:01:01Z')
+      expect(skill.toolUseId).toContain('injected-testing')
+    })
+
+    it('should detect multiple injected skills at same timestamp', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-002'))
+
+      createSubagentFile(sessionPath, 'agent-002', [
         JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
+          type: 'user',
+          timestamp: '2026-01-01T10:01:00Z',
           message: {
-            model: 'claude-opus-4-6',
             content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'implementer', description: 'Do work' },
-              },
+              { type: 'text', text: 'You are a Senior Full-Stack Engineer...' },
             ],
           },
         }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-002' },
-        }),
+        makeInjectedSkillMessage('tanstack-start', '2026-01-01T10:01:01Z'),
+        makeInjectedSkillMessage('typescript-rules', '2026-01-01T10:01:01Z'),
+        makeInjectedSkillMessage('react-rules', '2026-01-01T10:01:01Z'),
+        makeInjectedSkillMessage('uiux', '2026-01-01T10:01:01Z'),
       ])
-
-      // Create subagent file with only non-Skill tool calls
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-002.jsonl')
-      fs.writeFileSync(
-        subagentPath,
-        [
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:02:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Read',
-                  id: 'read1',
-                  input: { file_path: '/test.ts' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:03:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Edit',
-                  id: 'edit1',
-                  input: { file_path: '/test.ts', old_string: 'a', new_string: 'b' },
-                },
-              ],
-            },
-          }),
-        ].join('\n'),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
       expect(result.agents).toHaveLength(1)
-      expect(result.agents[0].agentId).toBe('agent-002')
-      expect(result.agents[0].skills).toEqual([])
-    })
-  })
+      expect(result.agents[0].skills).toHaveLength(4)
 
-  describe('file with one Skill block', () => {
-    it('should return single SkillInvocation when file has one Skill tool_use', async () => {
-      const sessionPath = createSessionJSONL([
+      const skillNames = result.agents[0].skills!.map((s) => s.skill)
+      expect(skillNames).toEqual(['tanstack-start', 'typescript-rules', 'react-rules', 'uiux'])
+
+      // All should be marked as injected
+      for (const skill of result.agents[0].skills!) {
+        expect(skill.source).toBe('injected')
+        expect(skill.args).toBeNull()
+      }
+    })
+
+    it('should return empty array when no injected skills exist', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-003'))
+
+      createSubagentFile(sessionPath, 'agent-003', [
         JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
+          type: 'user',
+          timestamp: '2026-01-01T10:01:00Z',
           message: {
-            model: 'claude-opus-4-6',
             content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'qa', description: 'Run tests' },
-              },
+              { type: 'text', text: 'You are a Senior Full-Stack Engineer...' },
             ],
           },
         }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-003' },
-        }),
-      ])
-
-      // Create subagent file with one Skill invocation
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-003.jsonl')
-      fs.writeFileSync(
-        subagentPath,
         JSON.stringify({
           type: 'assistant',
           timestamp: '2026-01-01T10:02:00Z',
@@ -202,80 +208,92 @@ describe('parseSubagentSkills', () => {
             content: [
               {
                 type: 'tool_use',
-                name: 'Skill',
-                id: 'skill1',
-                input: { skill: 'testing', args: '--coverage' },
+                name: 'Read',
+                id: 'read1',
+                input: { file_path: '/test.ts' },
               },
             ],
           },
         }),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
       expect(result.agents).toHaveLength(1)
-      expect(result.agents[0].agentId).toBe('agent-003')
+      expect(result.agents[0].skills).toEqual([])
+    })
+
+    it('should only check first 20 messages for injected skills', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-004'))
+
+      // Build 25 messages: skills at lines 2 and 22
+      const lines: string[] = [
+        // Line 1: initial prompt
+        JSON.stringify({
+          type: 'user',
+          timestamp: '2026-01-01T10:01:00Z',
+          message: { content: [{ type: 'text', text: 'Initial prompt' }] },
+        }),
+        // Line 2: injected skill (within first 20)
+        makeInjectedSkillMessage('early-skill', '2026-01-01T10:01:01Z'),
+      ]
+
+      // Lines 3-20: filler assistant/user messages
+      for (let i = 3; i <= 20; i++) {
+        lines.push(
+          JSON.stringify({
+            type: 'assistant',
+            timestamp: `2026-01-01T10:0${Math.floor(i / 10)}:${String(i % 60).padStart(2, '0')}Z`,
+            message: {
+              model: 'claude-opus-4-6',
+              content: [{ type: 'text', text: `Message ${i}` }],
+            },
+          }),
+        )
+      }
+
+      // Line 21+: injected skill AFTER the 20-message window (should not be detected as injected)
+      lines.push(makeInjectedSkillMessage('late-skill', '2026-01-01T10:30:00Z'))
+
+      createSubagentFile(sessionPath, 'agent-004', lines)
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      const skills = result.agents[0].skills!
+      // Only the early skill should be detected (within first 20 lines)
+      const skillNames = skills.map((s) => s.skill)
+      expect(skillNames).toContain('early-skill')
+      expect(skillNames).not.toContain('late-skill')
+    })
+  })
+
+  describe('legacy Skill tool_use blocks (backward compatibility)', () => {
+    it('should still detect legacy Skill tool_use blocks in assistant messages', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-005'))
+
+      createSubagentFile(sessionPath, 'agent-005', [
+        makeLegacySkillMessage('testing', '2026-01-01T10:02:00Z', 'skill1', '--coverage'),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
       expect(result.agents[0].skills).toHaveLength(1)
 
       const skill = result.agents[0].skills![0]
       expect(skill.skill).toBe('testing')
       expect(skill.args).toBe('--coverage')
-      expect(skill.timestamp).toBe('2026-01-01T10:02:00Z')
+      expect(skill.source).toBe('invoked')
       expect(skill.toolUseId).toBe('skill1')
     })
 
-    it('should handle Skill with null args', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'qa', description: 'Run tests' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-004' },
-        }),
-      ])
+    it('should handle legacy Skill with null args', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-006'))
 
-      // Create subagent file with Skill that has no args
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-004.jsonl')
-      fs.writeFileSync(
-        subagentPath,
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:02:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Skill',
-                id: 'skill1',
-                input: { skill: 'typescript-rules' },
-              },
-            ],
-          },
-        }),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      createSubagentFile(sessionPath, 'agent-006', [
+        makeLegacySkillMessage('typescript-rules', '2026-01-01T10:02:00Z', 'skill1'),
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
@@ -285,308 +303,66 @@ describe('parseSubagentSkills', () => {
       const skill = result.agents[0].skills![0]
       expect(skill.skill).toBe('typescript-rules')
       expect(skill.args).toBeNull()
+      expect(skill.source).toBe('invoked')
     })
   })
 
-  describe('file with multiple Skill blocks', () => {
-    it('should return all SkillInvocations when file has multiple Skill tool_use blocks', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'implementer', description: 'Build feature' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-005' },
-        }),
-      ])
+  describe('mixed injected and legacy skills', () => {
+    it('should detect both injected and legacy skills in same file', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-007'))
 
-      // Create subagent file with multiple Skill invocations
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-005.jsonl')
-      fs.writeFileSync(
-        subagentPath,
-        [
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:02:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill1',
-                  input: { skill: 'typescript-rules', args: '' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:03:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill2',
-                  input: { skill: 'react-rules' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:04:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill3',
-                  input: { skill: 'uiux', args: '--dark-mode' },
-                },
-              ],
-            },
-          }),
-        ].join('\n'),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      createSubagentFile(sessionPath, 'agent-007', [
+        // Injected skills near the start
+        makeInjectedSkillMessage('typescript-rules', '2026-01-01T10:01:01Z'),
+        makeInjectedSkillMessage('react-rules', '2026-01-01T10:01:01Z'),
+        // Legacy invoked skill later
+        makeLegacySkillMessage('testing', '2026-01-01T10:05:00Z', 'skill1', '--verbose'),
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
       expect(result.agents).toHaveLength(1)
-      expect(result.agents[0].agentId).toBe('agent-005')
-      expect(result.agents[0].skills).toHaveLength(3)
-
       const skills = result.agents[0].skills!
+      expect(skills).toHaveLength(3)
+
+      // Injected skills
       expect(skills[0].skill).toBe('typescript-rules')
-      expect(skills[0].args).toBeNull()
-      expect(skills[0].toolUseId).toBe('skill1')
-
+      expect(skills[0].source).toBe('injected')
       expect(skills[1].skill).toBe('react-rules')
-      expect(skills[1].args).toBeNull()
-      expect(skills[1].toolUseId).toBe('skill2')
+      expect(skills[1].source).toBe('injected')
 
-      expect(skills[2].skill).toBe('uiux')
-      expect(skills[2].args).toBe('--dark-mode')
-      expect(skills[2].toolUseId).toBe('skill3')
+      // Invoked skill
+      expect(skills[2].skill).toBe('testing')
+      expect(skills[2].source).toBe('invoked')
+      expect(skills[2].args).toBe('--verbose')
     })
+  })
 
-    it('should handle Skills mixed with other tool calls', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'implementer', description: 'Build feature' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-006' },
-        }),
-      ])
+  describe('empty file', () => {
+    it('should return empty array for empty subagent file', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-010'))
 
-      // Create subagent file with Skills interspersed with other tools
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-006.jsonl')
-      fs.writeFileSync(
-        subagentPath,
-        [
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:02:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill1',
-                  input: { skill: 'testing' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:03:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Read',
-                  id: 'read1',
-                  input: { file_path: '/test.ts' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:04:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill2',
-                  input: { skill: 'typescript-rules', args: '--strict' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:05:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Edit',
-                  id: 'edit1',
-                  input: { file_path: '/test.ts', old_string: 'a', new_string: 'b' },
-                },
-              ],
-            },
-          }),
-        ].join('\n'),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      createSubagentFile(sessionPath, 'agent-010', [''])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
       expect(result.agents).toHaveLength(1)
-      expect(result.agents[0].skills).toHaveLength(2)
-
-      const skills = result.agents[0].skills!
-      expect(skills[0].skill).toBe('testing')
-      expect(skills[1].skill).toBe('typescript-rules')
-      expect(skills[1].args).toBe('--strict')
+      expect(result.agents[0].agentId).toBe('agent-010')
+      expect(result.agents[0].skills).toEqual([])
     })
   })
 
   describe('malformed JSON lines', () => {
-    it('should skip malformed JSON lines and return valid Skills', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'qa', description: 'Run tests' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-007' },
-        }),
-      ])
+    it('should skip malformed JSON lines and return valid skills', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-011'))
 
-      // Create subagent file with malformed JSON mixed with valid Skills
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-007.jsonl')
-      fs.writeFileSync(
-        subagentPath,
-        [
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:02:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill1',
-                  input: { skill: 'testing' },
-                },
-              ],
-            },
-          }),
-          'invalid json line {{{', // Malformed line
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:03:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill2',
-                  input: { skill: 'typescript-rules' },
-                },
-              ],
-            },
-          }),
-          'another bad line', // Malformed line
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:04:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill3',
-                  input: { skill: 'react-rules' },
-                },
-              ],
-            },
-          }),
-        ].join('\n'),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      createSubagentFile(sessionPath, 'agent-011', [
+        makeInjectedSkillMessage('testing', '2026-01-01T10:01:01Z'),
+        'invalid json line {{{',
+        makeInjectedSkillMessage('typescript-rules', '2026-01-01T10:01:01Z'),
+        'another bad line',
+        makeLegacySkillMessage('react-rules', '2026-01-01T10:05:00Z', 'skill1'),
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
@@ -595,36 +371,17 @@ describe('parseSubagentSkills', () => {
 
       const skills = result.agents[0].skills!
       expect(skills[0].skill).toBe('testing')
+      expect(skills[0].source).toBe('injected')
       expect(skills[1].skill).toBe('typescript-rules')
+      expect(skills[1].source).toBe('injected')
       expect(skills[2].skill).toBe('react-rules')
+      expect(skills[2].source).toBe('invoked')
     })
   })
 
   describe('agentId extraction', () => {
     it('should extract agentId from progress message data', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'implementer', description: 'Build feature' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-alpha' },
-        }),
-      ])
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-alpha'))
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
@@ -738,71 +495,17 @@ describe('parseSubagentSkills', () => {
         }),
       ])
 
-      // Create subagent files for both agents
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
+      // Implementer agent with injected skills
+      createSubagentFile(sessionPath, 'agent-impl', [
+        makeInjectedSkillMessage('typescript-rules', '2026-01-01T10:01:01Z'),
+        makeInjectedSkillMessage('react-rules', '2026-01-01T10:01:01Z'),
+      ])
 
-      const implPath = path.join(subagentsDir, 'agent-agent-impl.jsonl')
-      fs.writeFileSync(
-        implPath,
-        [
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:02:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill1',
-                  input: { skill: 'typescript-rules' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            type: 'assistant',
-            timestamp: '2026-01-01T10:03:00Z',
-            message: {
-              model: 'claude-opus-4-6',
-              content: [
-                {
-                  type: 'tool_use',
-                  name: 'Skill',
-                  id: 'skill2',
-                  input: { skill: 'react-rules' },
-                },
-              ],
-            },
-          }),
-        ].join('\n'),
-        'utf-8',
-      )
-      testFiles.push(implPath)
-
-      const qaPath = path.join(subagentsDir, 'agent-agent-qa.jsonl')
-      fs.writeFileSync(
-        qaPath,
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T11:02:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Skill',
-                id: 'skill3',
-                input: { skill: 'testing', args: '--coverage' },
-              },
-            ],
-          },
-        }),
-        'utf-8',
-      )
-      testFiles.push(qaPath)
+      // QA agent with injected skill + legacy invoked skill
+      createSubagentFile(sessionPath, 'agent-qa', [
+        makeInjectedSkillMessage('testing', '2026-01-01T11:01:01Z'),
+        makeLegacySkillMessage('quality-check', '2026-01-01T11:05:00Z', 'skill-qc', '--strict'),
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
@@ -812,41 +515,24 @@ describe('parseSubagentSkills', () => {
       expect(implAgent).toBeDefined()
       expect(implAgent!.skills).toHaveLength(2)
       expect(implAgent!.skills![0].skill).toBe('typescript-rules')
+      expect(implAgent!.skills![0].source).toBe('injected')
       expect(implAgent!.skills![1].skill).toBe('react-rules')
+      expect(implAgent!.skills![1].source).toBe('injected')
 
       const qaAgent = result.agents.find((a) => a.agentId === 'agent-qa')
       expect(qaAgent).toBeDefined()
-      expect(qaAgent!.skills).toHaveLength(1)
+      expect(qaAgent!.skills).toHaveLength(2)
       expect(qaAgent!.skills![0].skill).toBe('testing')
-      expect(qaAgent!.skills![0].args).toBe('--coverage')
+      expect(qaAgent!.skills![0].source).toBe('injected')
+      expect(qaAgent!.skills![1].skill).toBe('quality-check')
+      expect(qaAgent!.skills![1].source).toBe('invoked')
+      expect(qaAgent!.skills![1].args).toBe('--strict')
     })
   })
 
   describe('edge cases', () => {
     it('should handle non-existent subagent file gracefully', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'implementer', description: 'Do work' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-nonexistent' },
-        }),
-      ])
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-nonexistent'))
 
       // Don't create the subagent file
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
@@ -856,37 +542,10 @@ describe('parseSubagentSkills', () => {
       expect(result.agents[0].skills).toBeUndefined()
     })
 
-    it('should handle Skill block without input field', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'qa', description: 'Run tests' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-008' },
-        }),
-      ])
+    it('should handle legacy Skill block without input field', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-008'))
 
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-008.jsonl')
-      fs.writeFileSync(
-        subagentPath,
+      createSubagentFile(sessionPath, 'agent-008', [
         JSON.stringify({
           type: 'assistant',
           timestamp: '2026-01-01T10:02:00Z',
@@ -902,9 +561,7 @@ describe('parseSubagentSkills', () => {
             ],
           },
         }),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
@@ -912,37 +569,10 @@ describe('parseSubagentSkills', () => {
       expect(result.agents[0].skills).toEqual([])
     })
 
-    it('should handle Skill block with input but missing skill field', async () => {
-      const sessionPath = createSessionJSONL([
-        JSON.stringify({
-          type: 'assistant',
-          timestamp: '2026-01-01T10:00:00Z',
-          message: {
-            model: 'claude-opus-4-6',
-            content: [
-              {
-                type: 'tool_use',
-                name: 'Task',
-                id: 'task1',
-                input: { subagent_type: 'qa', description: 'Run tests' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          type: 'progress',
-          timestamp: '2026-01-01T10:01:00Z',
-          parentToolUseID: 'task1',
-          data: { agentId: 'agent-009' },
-        }),
-      ])
+    it('should handle legacy Skill block with input but missing skill field', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-009'))
 
-      const subagentDir = sessionPath.replace(/\.jsonl$/, '')
-      const subagentsDir = path.join(subagentDir, 'subagents')
-      fs.mkdirSync(subagentsDir, { recursive: true })
-      const subagentPath = path.join(subagentsDir, 'agent-agent-009.jsonl')
-      fs.writeFileSync(
-        subagentPath,
+      createSubagentFile(sessionPath, 'agent-009', [
         JSON.stringify({
           type: 'assistant',
           timestamp: '2026-01-01T10:02:00Z',
@@ -958,9 +588,49 @@ describe('parseSubagentSkills', () => {
             ],
           },
         }),
-        'utf-8',
-      )
-      testFiles.push(subagentPath)
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      expect(result.agents[0].skills).toEqual([])
+    })
+
+    it('should handle user messages with text but no <command-name> marker', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-012'))
+
+      createSubagentFile(sessionPath, 'agent-012', [
+        JSON.stringify({
+          type: 'user',
+          timestamp: '2026-01-01T10:01:00Z',
+          message: {
+            content: [
+              { type: 'text', text: 'This is just a regular user message with no skill markers.' },
+            ],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      expect(result.agents[0].skills).toEqual([])
+    })
+
+    it('should handle user message with content that has only tool_result blocks (no text)', async () => {
+      const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-013'))
+
+      createSubagentFile(sessionPath, 'agent-013', [
+        JSON.stringify({
+          type: 'user',
+          timestamp: '2026-01-01T10:01:00Z',
+          message: {
+            content: [
+              { type: 'tool_result', tool_use_id: 'some-id', content: 'result text' },
+            ],
+          },
+        }),
+      ])
 
       const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
 
