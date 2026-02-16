@@ -8,8 +8,9 @@ maxTurns: 20
 memory: project
 skills:
   - database-rules
-  - supabase
   - tanstack-start
+  - typescript-rules
+  - react-rules
 ---
 
 You are a System Architect for a full stack application built with TanStack Start.

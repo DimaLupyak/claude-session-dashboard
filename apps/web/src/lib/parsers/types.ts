@@ -58,6 +58,8 @@ export interface AgentInvocation {
   durationMs?: number
   model?: string
   toolCalls?: Record<string, number>
+  agentId?: string
+  skills?: SkillInvocation[]
 }
 
 export interface SkillInvocation {
@@ -65,6 +67,8 @@ export interface SkillInvocation {
   args: string | null
   timestamp: string
   toolUseId: string
+  /** How the skill was loaded: 'injected' = from agent frontmatter via <command-name>, 'invoked' = explicit Skill tool call */
+  source?: 'injected' | 'invoked'
 }
 
 export interface TaskItem {
@@ -214,6 +218,7 @@ export interface RawJsonlMessage {
   }
   data?: {
     type?: string
+    agentId?: string
     message?: {
       type?: string
       message?: {

@@ -7,11 +7,8 @@ maxTurns: 50
 memory: project
 skills:
   - tanstack-start
-  - supabase
   - typescript-rules
   - react-rules
-  - database-rules
-  - uiux
   - playwright-cli
 ---
 

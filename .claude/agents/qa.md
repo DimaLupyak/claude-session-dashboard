@@ -9,7 +9,6 @@ skills:
   - testing
   - typescript-rules
   - react-rules
-  - uiux
   - playwright-cli
 ---
 

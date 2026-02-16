@@ -5,7 +5,7 @@ import { TimelineEventsChart } from '@/features/session-detail/timeline-chart'
 import { ContextWindowPanel } from '@/features/session-detail/ContextWindowPanel'
 import { ToolUsagePanel } from '@/features/session-detail/ToolUsagePanel'
 import { ErrorPanel } from '@/features/session-detail/ErrorPanel'
-import { AgentsSkillsPanel } from '@/features/session-detail/AgentsSkillsPanel'
+import { AgentDispatchesPanel, SkillInvocationsPanel } from '@/features/session-detail/AgentsSkillsPanel'
 import { TasksPanel } from '@/features/session-detail/TasksPanel'
 import { CostEstimationPanel } from '@/features/cost-estimation/CostEstimationPanel'
 import { CostSummaryLine } from '@/features/cost-estimation/CostSummaryLine'
@@ -140,10 +140,10 @@ function SessionDetailPage() {
         <CostEstimationPanel tokensByModel={detail.tokensByModel} />
       </div>
 
-      {/* Agents & Skills */}
-      {(detail.agents.length > 0 || detail.skills.length > 0) && (
+      {/* Agent Dispatches */}
+      {detail.agents.length > 0 && (
         <div className="mt-4">
-          <AgentsSkillsPanel agents={detail.agents} skills={detail.skills} />
+          <AgentDispatchesPanel agents={detail.agents} />
         </div>
       )}
 
@@ -168,6 +168,13 @@ function SessionDetailPage() {
           errors={detail.errors}
         />
       </div>
+
+      {/* Skill Invocations */}
+      {(detail.skills.length > 0 || detail.agents.some(a => (a.skills?.length ?? 0) > 0)) && (
+        <div className="mt-6">
+          <SkillInvocationsPanel agents={detail.agents} skills={detail.skills} />
+        </div>
+      )}
 
     </div>
   )

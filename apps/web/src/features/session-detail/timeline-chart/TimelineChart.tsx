@@ -430,6 +430,38 @@ function AgentLaneSVG({
           </title>
         </circle>
       ))}
+
+      {/* Skill diamonds within agent lane */}
+      {lane.skills && lane.skills.length > 0 && lane.skills.map((skill, i) => {
+        // Distribute skills evenly across the agent's time span
+        const skillRelX = lane.startX + ((lane.endX - lane.startX) / (lane.skills!.length + 1)) * (i + 1)
+        const cx = toX(skillRelX)
+        const cy = y + 6 // Position near top edge of lane
+        const size = 3
+        return (
+          <polygon
+            key={`skill-${skill.skill}-${i}`}
+            points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`}
+            fill="#fbbf24"
+            opacity={0.85}
+            className="cursor-pointer hover:opacity-100"
+            onMouseEnter={(e) =>
+              onHover(
+                {
+                  kind: 'skill',
+                  skill: skill.skill,
+                  args: skill.args,
+                  timestamp: new Date(lane.startMs).toISOString(),
+                },
+                getPosition(e),
+              )
+            }
+            onMouseLeave={() => onHover(null, { x: 0, y: 0 })}
+          >
+            <title>/{skill.skill} ({lane.subagentType})</title>
+          </polygon>
+        )
+      })}
     </g>
   )
 }

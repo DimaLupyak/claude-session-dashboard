@@ -127,6 +127,7 @@ export async function parseDetail(
   const agentProgressTokens = new Map<string, TokenUsage>()
   const agentProgressToolCalls = new Map<string, Record<string, number>>()
   const agentProgressModel = new Map<string, string>()
+  const agentIdByToolUseId = new Map<string, string>()
 
   // Map for linking TaskCreate tool_use_id to pending task
   const pendingTaskByToolUseId = new Map<string, TaskItem>()
@@ -148,6 +149,12 @@ export async function parseDetail(
     // Track agent progress messages
     if (msg.type === 'progress' && msg.parentToolUseID) {
       const parentId = msg.parentToolUseID
+
+      // Track the agentId from progress messages
+      const progressAgentId = msg.data?.agentId
+      if (progressAgentId && parentId) {
+        agentIdByToolUseId.set(parentId, progressAgentId)
+      }
 
       // Track the model used by each agent
       const progressModel = msg.data?.message?.message?.model
@@ -416,6 +423,24 @@ export async function parseDetail(
     }
   }
 
+  // Enrich agents with agentId and subagent skills
+  const subagentDir = filePath.replace(/\.jsonl$/, '')
+  await Promise.all(
+    agents.map(async (agent) => {
+      const agentId = agentIdByToolUseId.get(agent.toolUseId)
+      if (!agentId) return
+
+      agent.agentId = agentId
+      const subagentFilePath = `${subagentDir}/subagents/agent-${agentId}.jsonl`
+
+      try {
+        agent.skills = await parseSubagentSkills(subagentFilePath)
+      } catch {
+        // Subagent file does not exist or is not readable — skip
+      }
+    }),
+  )
+
   // Build context window data
   const modelName = modelsSet.size > 0 ? Array.from(modelsSet)[0] : 'unknown'
   const contextWindow = buildContextWindowData(
@@ -473,6 +498,85 @@ export async function readSessionMessages(
   }
 
   return { messages, total }
+}
+
+// --- Subagent skill parsing ---
+
+/** Regex to extract skill name from <command-name>SKILL_NAME</command-name> */
+const COMMAND_NAME_RE = /<command-name>([^<]+)<\/command-name>/
+
+/**
+ * Lightweight single-pass parser that reads a subagent JSONL file
+ * and extracts skills. Detects two patterns:
+ *
+ * 1. **Injected skills** (from agent frontmatter): user messages where
+ *    content[0].text contains `<command-name>SKILL_NAME</command-name>`.
+ *    These appear in the first ~20 messages of the subagent JSONL.
+ *
+ * 2. **Invoked skills** (legacy): assistant messages with `Skill` tool_use blocks.
+ *
+ * Only the first 20 messages are checked for injected skills (they always
+ * appear near the start). Invoked skills are scanned across the entire file
+ * for backward compatibility.
+ */
+async function parseSubagentSkills(
+  subagentFilePath: string,
+): Promise<SkillInvocation[]> {
+  const skills: SkillInvocation[] = []
+
+  const stream = fs.createReadStream(subagentFilePath, { encoding: 'utf-8' })
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+
+  let lineCount = 0
+  const MAX_LINES_FOR_INJECTED = 20
+
+  for await (const line of rl) {
+    const msg = safeParse(line)
+    if (!msg) continue
+    lineCount++
+
+    // Pattern 1: Injected skills from agent frontmatter (user messages with <command-name>)
+    if (lineCount <= MAX_LINES_FOR_INJECTED && msg.type === 'user' && msg.message?.content) {
+      const content = msg.message.content
+      if (Array.isArray(content) && content.length >= 1) {
+        const firstBlock = content[0]
+        if (firstBlock.type === 'text' && firstBlock.text) {
+          const match = COMMAND_NAME_RE.exec(firstBlock.text)
+          if (match) {
+            const skillName = match[1].trim()
+            if (skillName) {
+              skills.push({
+                skill: skillName,
+                args: null,
+                timestamp: msg.timestamp ?? '',
+                toolUseId: `injected-${skillName}-${msg.timestamp ?? lineCount}`,
+                source: 'injected',
+              })
+            }
+          }
+        }
+      }
+    }
+
+    // Pattern 2: Legacy Skill tool_use blocks in assistant messages
+    if (msg.type === 'assistant' && msg.message?.content) {
+      for (const block of msg.message.content) {
+        if (block.type !== 'tool_use' || block.name !== 'Skill') continue
+        const inp = block.input as Record<string, unknown> | undefined
+        if (!inp?.skill) continue
+
+        skills.push({
+          skill: String(inp.skill),
+          args: inp.args ? String(inp.args) : null,
+          timestamp: msg.timestamp ?? '',
+          toolUseId: block.id ?? '',
+          source: 'invoked',
+        })
+      }
+    }
+  }
+
+  return skills
 }
 
 // --- Context window helpers ---

@@ -8,7 +8,6 @@ maxTurns: 30
 memory: project
 skills:
   - tanstack-start
-  - supabase
   - database-rules
   - react-rules
   - sdlc
