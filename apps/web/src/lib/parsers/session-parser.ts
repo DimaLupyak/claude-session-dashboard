@@ -379,6 +379,16 @@ export async function parseDetail(
               if (result.totalTokens) agent.totalTokens = result.totalTokens
               if (result.totalToolUseCount) agent.totalToolUseCount = result.totalToolUseCount
               if (result.totalDurationMs) agent.durationMs = result.totalDurationMs
+
+              // Background agents: extract agentId from async launch result
+              if (result.isAsync === true && result.agentId) {
+                agentIdByToolUseId.set(String(toolUseId), result.agentId)
+              }
+
+              // TaskOutput results may also contain an agentId via task.task_id
+              if (result.retrieval_status && result.task?.task_id) {
+                agentIdByToolUseId.set(String(toolUseId), result.task.task_id)
+              }
             }
           }
         }
@@ -423,7 +433,7 @@ export async function parseDetail(
     }
   }
 
-  // Enrich agents with agentId and subagent skills
+  // Enrich agents with agentId and subagent detail (skills, tokens, tools, model)
   const subagentDir = filePath.replace(/\.jsonl$/, '')
   await Promise.all(
     agents.map(async (agent) => {
@@ -434,7 +444,49 @@ export async function parseDetail(
       const subagentFilePath = `${subagentDir}/subagents/agent-${agentId}.jsonl`
 
       try {
-        agent.skills = await parseSubagentSkills(subagentFilePath)
+        const detail = await parseSubagentDetail(subagentFilePath)
+
+        // Always set skills from subagent JSONL (most complete source)
+        agent.skills = detail.skills
+
+        // For background agents (no agent_progress messages), populate from subagent JSONL
+        if (!agent.tokens) {
+          agent.tokens = detail.tokens
+
+          // Add subagent tokens to session-level totals (they weren't counted via progress)
+          totalTokens.inputTokens += detail.tokens.inputTokens
+          totalTokens.outputTokens += detail.tokens.outputTokens
+          totalTokens.cacheReadInputTokens += detail.tokens.cacheReadInputTokens
+          totalTokens.cacheCreationInputTokens += detail.tokens.cacheCreationInputTokens
+
+          // Add to per-model tracking
+          if (detail.model) {
+            const modelId = detail.model
+            const existing = tokensByModel[modelId] ?? {
+              inputTokens: 0,
+              outputTokens: 0,
+              cacheReadInputTokens: 0,
+              cacheCreationInputTokens: 0,
+            }
+            existing.inputTokens += detail.tokens.inputTokens
+            existing.outputTokens += detail.tokens.outputTokens
+            existing.cacheReadInputTokens += detail.tokens.cacheReadInputTokens
+            existing.cacheCreationInputTokens += detail.tokens.cacheCreationInputTokens
+            tokensByModel[modelId] = existing
+          }
+        }
+
+        if (!agent.toolCalls) {
+          agent.toolCalls = detail.toolCalls
+        }
+
+        if (!agent.model && detail.model) {
+          agent.model = detail.model
+        }
+
+        if (!agent.totalToolUseCount && detail.totalToolUseCount > 0) {
+          agent.totalToolUseCount = detail.totalToolUseCount
+        }
       } catch {
         // Subagent file does not exist or is not readable — skip
       }
@@ -500,14 +552,24 @@ export async function readSessionMessages(
   return { messages, total }
 }
 
-// --- Subagent skill parsing ---
+// --- Subagent detail parsing ---
 
 /** Regex to extract skill name from <command-name>SKILL_NAME</command-name> */
 const COMMAND_NAME_RE = /<command-name>([^<]+)<\/command-name>/
 
+interface SubagentDetail {
+  skills: SkillInvocation[]
+  tokens: TokenUsage
+  toolCalls: Record<string, number>
+  model?: string
+  totalToolUseCount: number
+}
+
 /**
- * Lightweight single-pass parser that reads a subagent JSONL file
- * and extracts skills. Detects two patterns:
+ * Full single-pass parser that reads a subagent JSONL file and extracts
+ * skills, token usage, tool call frequency, and model info.
+ *
+ * Skills detection has two patterns:
  *
  * 1. **Injected skills** (from agent frontmatter): user messages where
  *    content[0].text contains `<command-name>SKILL_NAME</command-name>`.
@@ -515,14 +577,22 @@ const COMMAND_NAME_RE = /<command-name>([^<]+)<\/command-name>/
  *
  * 2. **Invoked skills** (legacy): assistant messages with `Skill` tool_use blocks.
  *
- * Only the first 20 messages are checked for injected skills (they always
- * appear near the start). Invoked skills are scanned across the entire file
- * for backward compatibility.
+ * Token usage, tool calls, and model are extracted from assistant messages
+ * that contain `usage` and `content` fields (same structure as main session).
  */
-async function parseSubagentSkills(
+async function parseSubagentDetail(
   subagentFilePath: string,
-): Promise<SkillInvocation[]> {
+): Promise<SubagentDetail> {
   const skills: SkillInvocation[] = []
+  const tokens: TokenUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+  }
+  const toolCalls: Record<string, number> = {}
+  let model: string | undefined
+  let totalToolUseCount = 0
 
   const stream = fs.createReadStream(subagentFilePath, { encoding: 'utf-8' })
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
@@ -558,25 +628,49 @@ async function parseSubagentSkills(
       }
     }
 
-    // Pattern 2: Legacy Skill tool_use blocks in assistant messages
-    if (msg.type === 'assistant' && msg.message?.content) {
-      for (const block of msg.message.content) {
-        if (block.type !== 'tool_use' || block.name !== 'Skill') continue
-        const inp = block.input as Record<string, unknown> | undefined
-        if (!inp?.skill) continue
+    // Extract data from assistant messages
+    if (msg.type === 'assistant' && msg.message) {
+      // Extract model (use the first one found, which is the actual model)
+      if (msg.message.model && !model) {
+        model = msg.message.model
+      }
 
-        skills.push({
-          skill: String(inp.skill),
-          args: inp.args ? String(inp.args) : null,
-          timestamp: msg.timestamp ?? '',
-          toolUseId: block.id ?? '',
-          source: 'invoked',
-        })
+      // Accumulate token usage
+      if (msg.message.usage) {
+        const u = msg.message.usage
+        tokens.inputTokens += u.input_tokens ?? 0
+        tokens.outputTokens += u.output_tokens ?? 0
+        tokens.cacheReadInputTokens += u.cache_read_input_tokens ?? 0
+        tokens.cacheCreationInputTokens += u.cache_creation_input_tokens ?? 0
+      }
+
+      // Extract tool calls and skills from content blocks
+      if (msg.message.content) {
+        for (const block of msg.message.content) {
+          if (block.type === 'tool_use' && block.name) {
+            toolCalls[block.name] = (toolCalls[block.name] ?? 0) + 1
+            totalToolUseCount++
+
+            // Legacy Skill tool_use blocks
+            if (block.name === 'Skill') {
+              const inp = block.input as Record<string, unknown> | undefined
+              if (inp?.skill) {
+                skills.push({
+                  skill: String(inp.skill),
+                  args: inp.args ? String(inp.args) : null,
+                  timestamp: msg.timestamp ?? '',
+                  toolUseId: block.id ?? '',
+                  source: 'invoked',
+                })
+              }
+            }
+          }
+        }
       }
     }
   }
 
-  return skills
+  return { skills, tokens, toolCalls, model, totalToolUseCount }
 }
 
 // --- Context window helpers ---
