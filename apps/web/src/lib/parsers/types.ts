@@ -240,6 +240,13 @@ export interface RawJsonlMessage {
     totalToolUseCount?: number
     totalDurationMs?: number
     agentId?: string
+    isAsync?: boolean
+    status?: string
+    retrieval_status?: string
+    task?: {
+      task_id?: string
+      status?: string
+    }
   }
   slug?: string
   subtype?: string
