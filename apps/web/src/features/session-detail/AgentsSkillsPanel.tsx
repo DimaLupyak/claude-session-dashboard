@@ -8,7 +8,12 @@ import { getMergedPricing, calculateSessionCost } from '@/features/cost-estimati
 
 function computeAgentTokens(agent: AgentInvocation): number | undefined {
   if (!agent.tokens) return undefined
-  return agent.tokens.inputTokens + agent.tokens.outputTokens
+  return (
+    agent.tokens.inputTokens +
+    agent.tokens.outputTokens +
+    agent.tokens.cacheReadInputTokens +
+    agent.tokens.cacheCreationInputTokens
+  )
 }
 
 export function AgentDispatchesPanel({
