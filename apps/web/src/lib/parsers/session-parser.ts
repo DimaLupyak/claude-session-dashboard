@@ -593,6 +593,7 @@ async function parseSubagentDetail(
   const toolCalls: Record<string, number> = {}
   let model: string | undefined
   let totalToolUseCount = 0
+  const seenRequestIds = new Set<string>()
 
   const stream = fs.createReadStream(subagentFilePath, { encoding: 'utf-8' })
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
@@ -630,13 +631,19 @@ async function parseSubagentDetail(
 
     // Extract data from assistant messages
     if (msg.type === 'assistant' && msg.message) {
+      const requestId = msg.requestId
+
+      // Only count tokens once per API call (messages from same call share requestId)
+      const isNewRequest = !requestId || !seenRequestIds.has(requestId)
+      if (requestId) seenRequestIds.add(requestId)
+
       // Extract model (use the first one found, which is the actual model)
       if (msg.message.model && !model) {
         model = msg.message.model
       }
 
-      // Accumulate token usage
-      if (msg.message.usage) {
+      // Accumulate token usage — only once per requestId
+      if (isNewRequest && msg.message.usage) {
         const u = msg.message.usage
         tokens.inputTokens += u.input_tokens ?? 0
         tokens.outputTokens += u.output_tokens ?? 0

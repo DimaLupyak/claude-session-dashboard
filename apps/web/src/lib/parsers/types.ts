@@ -234,6 +234,7 @@ export interface RawJsonlMessage {
       }
     }
   }
+  requestId?: string
   parentToolUseID?: string
   toolUseResult?: {
     totalTokens?: number
