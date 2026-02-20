@@ -371,7 +371,18 @@ export async function parseDetail(
             }
           }
 
-          // Extract agent completion stats from toolUseResult
+          // Extract agentId from background agent launch text
+          // Background agents (run_in_background: true) emit NO progress messages.
+          // Their agentId appears in the tool_result text content like:
+          //   "agentId: aa1bbed (internal ID - do not mention to user...)"
+          if (resultText && toolUseId) {
+            const agentIdMatch = resultText.match(/agentId:\s*(\w+)/)
+            if (agentIdMatch) {
+              agentIdByToolUseId.set(String(toolUseId), agentIdMatch[1])
+            }
+          }
+
+          // Extract agent completion stats from toolUseResult (fallback for structured results)
           if (msg.toolUseResult && toolUseId) {
             const agent = agentByToolUseId.get(String(toolUseId))
             if (agent) {
@@ -642,13 +653,13 @@ async function parseSubagentDetail(
         model = msg.message.model
       }
 
-      // Track last request's tokens (represents final context window size)
+      // Accumulate tokens across all requests (cumulative total for the subagent)
       if (isNewRequest && msg.message.usage) {
         const u = msg.message.usage
-        tokens.inputTokens = u.input_tokens ?? 0
-        tokens.outputTokens = u.output_tokens ?? 0
-        tokens.cacheReadInputTokens = u.cache_read_input_tokens ?? 0
-        tokens.cacheCreationInputTokens = u.cache_creation_input_tokens ?? 0
+        tokens.inputTokens += u.input_tokens ?? 0
+        tokens.outputTokens += u.output_tokens ?? 0
+        tokens.cacheReadInputTokens += u.cache_read_input_tokens ?? 0
+        tokens.cacheCreationInputTokens += u.cache_creation_input_tokens ?? 0
       }
 
       // Extract tool calls and skills from content blocks

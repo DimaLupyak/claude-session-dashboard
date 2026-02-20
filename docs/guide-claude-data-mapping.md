@@ -78,13 +78,14 @@ Every line is parsed when viewing a session's detail page.
 |---|---|---|
 | Text content | `message.content[].text` (first 500 chars) | Timeline turn display |
 | Task ID assignment | `tool_result` text matching `Task #<id> created` | Links TaskCreate to ID |
-| Agent completion stats | `msg.toolUseResult.{totalTokens, totalToolUseCount, totalDurationMs}` | Agent cards |
+| Background agent ID | `tool_result` text matching `agentId: XXXXX` in user message content | Links background agent to subagent JSONL |
+| Agent completion stats | `msg.toolUseResult.{totalTokens, totalToolUseCount, totalDurationMs}` (fallback for structured results) | Agent cards |
 
 **From `progress` messages:**
 
 | Data Point | Source Field | Used In |
 |---|---|---|
-| Agent ID | `data.agentId` | Links agent to subagent JSONL file |
+| Agent ID (foreground) | `data.agentId` | Links foreground agent to subagent JSONL file |
 | Agent model (actual) | `data.message.message.model` | Agent cards (overrides requested model) |
 | Agent tokens | `data.message.message.usage` | Agent token totals |
 | Agent tool calls | `data.message.message.content[].tool_use.name` | Agent tool frequency |
@@ -103,7 +104,9 @@ Every line is parsed when viewing a session's detail page.
 
 **Path:** `~/.claude/projects/<dir>/<session-id>/subagents/agent-<agent-id>.jsonl`
 
-Only parsed when viewing a session detail that has agent dispatches. Linked via `agentId` from progress messages.
+Only parsed when viewing a session detail that has agent dispatches. Linked via `agentId` extracted from:
+- **Foreground agents:** `data.agentId` in `progress` messages (`parentToolUseID` links to Task tool_use)
+- **Background agents:** Text pattern `agentId: XXXXX` in `user` message `tool_result` content (background agents emit NO progress messages)
 
 | Data Point | Detection Pattern | Used In |
 |---|---|---|

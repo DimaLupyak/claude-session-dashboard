@@ -530,6 +530,282 @@ describe('parseSubagentSkills', () => {
     })
   })
 
+  describe('background agent agentId extraction', () => {
+    /**
+     * Helper to create a user message with tool_result text content
+     * mimicking a background agent launch result.
+     * Background agents (run_in_background: true) emit NO progress messages.
+     * Their agentId comes from text content in the tool_result block.
+     */
+    function makeBackgroundAgentResult(toolUseId: string, agentId: string): string {
+      return JSON.stringify({
+        type: 'user',
+        timestamp: '2026-01-01T10:01:30Z',
+        message: {
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: toolUseId,
+              content: [
+                {
+                  type: 'text',
+                  text: `Async agent launched successfully.\nagentId: ${agentId} (internal ID - do not mention to user. Use to resume later if needed.)\nThe agent is working in the background. You will be notified automatically when it completes.\nContinue with other tasks.\noutput_file: /private/tmp/claude-501/task-output.json`,
+                },
+              ],
+            },
+          ],
+        },
+      })
+    }
+
+    /**
+     * Helper to create a session with a background agent (no progress messages).
+     * The Task tool_use is followed by a user message with tool_result text
+     * containing the agentId.
+     */
+    function makeSessionWithBackgroundAgent(toolUseId: string, agentId: string): string[] {
+      return [
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:00Z',
+          message: {
+            model: 'claude-opus-4-6',
+            content: [
+              {
+                type: 'tool_use',
+                name: 'Task',
+                id: toolUseId,
+                input: {
+                  subagent_type: 'implementer',
+                  description: 'Background work',
+                },
+              },
+            ],
+          },
+        }),
+        makeBackgroundAgentResult(toolUseId, agentId),
+      ]
+    }
+
+    it('should extract agentId from background agent tool_result text', async () => {
+      const sessionPath = createSessionJSONL(
+        makeSessionWithBackgroundAgent('bg-task1', 'aa1bbed'),
+      )
+
+      createSubagentFile(sessionPath, 'aa1bbed', [
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:02:00Z',
+          message: {
+            model: 'claude-opus-4-6',
+            content: [{ type: 'text', text: 'Working on it...' }],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      expect(result.agents[0].agentId).toBe('aa1bbed')
+      expect(result.agents[0].subagentType).toBe('implementer')
+    })
+
+    it('should extract agentId from background agent without any progress messages', async () => {
+      // Verify that NO progress message is needed for background agents
+      const sessionPath = createSessionJSONL(
+        makeSessionWithBackgroundAgent('bg-task2', 'bb2ccef'),
+      )
+
+      // Don't create subagent file to isolate just the agentId extraction
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      // agentId should be extracted from text, even without progress messages
+      expect(result.agents[0].agentId).toBe('bb2ccef')
+    })
+
+    it('should link background agent to subagent JSONL for skills and tokens', async () => {
+      const sessionPath = createSessionJSONL(
+        makeSessionWithBackgroundAgent('bg-task3', 'cc3ddef'),
+      )
+
+      createSubagentFile(sessionPath, 'cc3ddef', [
+        makeInjectedSkillMessage('typescript-rules', '2026-01-01T10:01:01Z'),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:02:00Z',
+          requestId: 'req1',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 1000,
+              output_tokens: 200,
+              cache_read_input_tokens: 500,
+              cache_creation_input_tokens: 100,
+            },
+            content: [
+              { type: 'tool_use', name: 'Read', id: 'r1', input: { file_path: '/test.ts' } },
+            ],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      const agent = result.agents[0]
+      expect(agent.agentId).toBe('cc3ddef')
+      expect(agent.skills).toHaveLength(1)
+      expect(agent.skills![0].skill).toBe('typescript-rules')
+      // Background agent tokens come from subagent JSONL
+      expect(agent.tokens).toBeDefined()
+      expect(agent.tokens!.inputTokens).toBe(1000)
+      expect(agent.tokens!.outputTokens).toBe(200)
+    })
+  })
+
+  describe('subagent token accumulation', () => {
+    it('should accumulate tokens across multiple requests in subagent JSONL', async () => {
+      const sessionPath = createSessionJSONL(
+        makeSessionWithAgent('agent-accum'),
+      )
+
+      // Subagent file with 3 different requests, each with token usage
+      createSubagentFile(sessionPath, 'agent-accum', [
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:02:00Z',
+          requestId: 'req-1',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 10000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 5000,
+              cache_creation_input_tokens: 1000,
+            },
+            content: [{ type: 'text', text: 'Response 1' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:03:00Z',
+          requestId: 'req-2',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 20000,
+              output_tokens: 3000,
+              cache_read_input_tokens: 8000,
+              cache_creation_input_tokens: 2000,
+            },
+            content: [{ type: 'text', text: 'Response 2' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:04:00Z',
+          requestId: 'req-3',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 16000,
+              output_tokens: 4000,
+              cache_read_input_tokens: 7000,
+              cache_creation_input_tokens: 3000,
+            },
+            content: [{ type: 'text', text: 'Response 3' }],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      const agent = result.agents[0]
+
+      // Foreground agents get tokens from progress messages, not subagent JSONL.
+      // The progress tokens are already tracked separately.
+      // But if no progress tokens exist, subagent tokens are used.
+      // Since makeSessionWithAgent has a progress message without usage data,
+      // the agent won't have progress-based tokens, so subagent tokens are used.
+
+      // The key assertion: tokens should be CUMULATIVE (sum of all 3 requests)
+      // not just the last request's tokens
+      expect(agent.tokens).toBeDefined()
+      expect(agent.tokens!.inputTokens).toBe(10000 + 20000 + 16000) // 46000
+      expect(agent.tokens!.outputTokens).toBe(2000 + 3000 + 4000) // 9000
+      expect(agent.tokens!.cacheReadInputTokens).toBe(5000 + 8000 + 7000) // 20000
+      expect(agent.tokens!.cacheCreationInputTokens).toBe(1000 + 2000 + 3000) // 6000
+    })
+
+    it('should deduplicate tokens by requestId in subagent JSONL', async () => {
+      const sessionPath = createSessionJSONL(
+        makeSessionWithAgent('agent-dedup'),
+      )
+
+      // Two messages with the SAME requestId should only count once
+      createSubagentFile(sessionPath, 'agent-dedup', [
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:02:00Z',
+          requestId: 'req-same',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 5000,
+              output_tokens: 1000,
+              cache_read_input_tokens: 2000,
+              cache_creation_input_tokens: 500,
+            },
+            content: [{ type: 'text', text: 'First message of request' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:02:01Z',
+          requestId: 'req-same',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 5000,
+              output_tokens: 1000,
+              cache_read_input_tokens: 2000,
+              cache_creation_input_tokens: 500,
+            },
+            content: [
+              { type: 'tool_use', name: 'Read', id: 'r1', input: { file_path: '/test.ts' } },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:03:00Z',
+          requestId: 'req-different',
+          message: {
+            model: 'claude-opus-4-6',
+            usage: {
+              input_tokens: 8000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 3000,
+              cache_creation_input_tokens: 1000,
+            },
+            content: [{ type: 'text', text: 'Different request' }],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.agents).toHaveLength(1)
+      const agent = result.agents[0]
+      expect(agent.tokens).toBeDefined()
+      // Only 2 unique requests counted: req-same (once) + req-different
+      expect(agent.tokens!.inputTokens).toBe(5000 + 8000) // 13000
+      expect(agent.tokens!.outputTokens).toBe(1000 + 2000) // 3000
+    })
+  })
+
   describe('edge cases', () => {
     it('should handle non-existent subagent file gracefully', async () => {
       const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-nonexistent'))
