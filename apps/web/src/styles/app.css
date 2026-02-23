@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Warm gray scale (overrides Tailwind default cool grays) */
+  /* Default palette (dark) */
   --color-gray-50: #f5f3ec;
   --color-gray-100: #eae6dc;
   --color-gray-200: #e0dbd0;
@@ -20,4 +20,30 @@
   --color-brand-500: #d97757;
   --color-brand-600: #c4643f;
   --color-brand-700: #a8512e;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  /* Invert the gray scale so dark-numbered tokens become light surfaces */
+  --color-gray-50: #141413;
+  --color-gray-100: #1c1c1a;
+  --color-gray-200: #2a2926;
+  --color-gray-300: #3d3b36;
+  --color-gray-400: #565349;
+  --color-gray-500: #7a7668;
+  --color-gray-600: #a39e90;
+  --color-gray-700: #cdc8b8;
+  --color-gray-800: #e0dbd0;
+  --color-gray-900: #eae6dc;
+  --color-gray-950: #f5f3ec;
+}
+
+body {
+  background-color: var(--color-gray-950);
+  color: var(--color-gray-100);
+  transition: background-color 150ms ease, color 150ms ease;
 }

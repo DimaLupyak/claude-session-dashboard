@@ -82,7 +82,7 @@ function SessionDetailPage() {
           >
             &larr; Sessions
           </Link>
-          <h1 className="mt-1 text-xl font-bold text-white">
+          <h1 className="mt-1 text-xl font-bold text-gray-100">
             {privacyMode
               ? anonymizeProjectName(detail.projectName)
               : detail.projectName}

@@ -65,7 +65,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Settings</h1>
+      <h1 className="text-xl font-bold text-gray-100">Settings</h1>
       <p className="mt-1 text-xs text-gray-500">
         Configure your subscription tier and API pricing for cost estimation.
       </p>

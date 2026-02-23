@@ -59,7 +59,7 @@ function StatsPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Stats</h1>
+          <h1 className="text-2xl font-bold text-gray-100">Stats</h1>
           <p className="mt-1 text-sm text-gray-400">
             Usage analytics and project insights
           </p>
@@ -114,7 +114,7 @@ function StatsPage() {
           onClick={() => navigate({ search: { tab: 'overview' } })}
           className={`px-4 py-2 text-sm border-b-2 transition-colors ${
             tab === 'overview'
-              ? 'border-brand-500 text-white'
+              ? 'border-brand-500 text-gray-100'
               : 'border-transparent text-gray-400 hover:text-gray-200'
           }`}
         >
@@ -124,7 +124,7 @@ function StatsPage() {
           onClick={() => navigate({ search: { tab: 'projects' } })}
           className={`px-4 py-2 text-sm border-b-2 transition-colors ${
             tab === 'projects'
-              ? 'border-brand-500 text-white'
+              ? 'border-brand-500 text-gray-100'
               : 'border-transparent text-gray-400 hover:text-gray-200'
           }`}
         >

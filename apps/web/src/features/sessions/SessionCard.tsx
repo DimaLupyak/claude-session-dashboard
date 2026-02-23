@@ -25,7 +25,7 @@ export function SessionCard({ session }: { session: SessionSummary }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-white">
+            <h3 className="truncate text-sm font-semibold text-gray-100">
               {displayName}
             </h3>
             <StatusBadge isActive={session.isActive} />
