@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Run ESLint with reviewdog
-        uses: reviewdog/action-eslint@5f1b05a078e2a3172d97558e67d6f14608cd8bbc # v1
+        uses: reviewdog/action-eslint@556a3fdaf8b4201d4d74d406013386aa4f7dab96 # v1
         with:
           reporter: github-pr-review
           eslint_flags: 'src/'
