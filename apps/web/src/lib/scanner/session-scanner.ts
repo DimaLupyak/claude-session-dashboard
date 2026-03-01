@@ -6,15 +6,24 @@ import { isSessionActive } from './active-detector'
 import { parseSummary } from '../parsers/session-parser'
 import type { SessionSummary } from '../parsers/types'
 
+/** Extended summary that includes the absolute JSONL file path (server-side only). */
+export interface SessionSummaryWithPath extends SessionSummary {
+  filePath: string
+}
+
 // In-memory cache: sessionId -> { mtime, summary }
 const summaryCache = new Map<
   string,
   { mtimeMs: number; summary: SessionSummary }
 >()
 
-export async function scanAllSessions(): Promise<SessionSummary[]> {
+/**
+ * Internal scanning logic that returns summaries with their file paths.
+ * Used by both public APIs below.
+ */
+async function scanSessionsInternal(): Promise<SessionSummaryWithPath[]> {
   const projects = await scanProjects()
-  const summaries: SessionSummary[] = []
+  const summaries: SessionSummaryWithPath[] = []
 
   for (const project of projects) {
     for (const file of project.sessionFiles) {
@@ -33,7 +42,7 @@ export async function scanAllSessions(): Promise<SessionSummary[]> {
       if (cached && cached.mtimeMs === stat.mtimeMs) {
         // Refresh active status even for cached entries
         const active = await isSessionActive(project.dirName, sessionId)
-        summaries.push({ ...cached.summary, isActive: active })
+        summaries.push({ ...cached.summary, isActive: active, filePath })
         continue
       }
 
@@ -54,7 +63,7 @@ export async function scanAllSessions(): Promise<SessionSummary[]> {
           mtimeMs: stat.mtimeMs,
           summary,
         })
-        summaries.push(summary)
+        summaries.push({ ...summary, filePath })
       }
     }
   }
@@ -66,6 +75,18 @@ export async function scanAllSessions(): Promise<SessionSummary[]> {
   )
 
   return summaries
+}
+
+/** Public API: returns SessionSummary[] without filePath -- used by server functions that serialize to client. */
+export async function scanAllSessions(): Promise<SessionSummary[]> {
+  const results = await scanSessionsInternal()
+  // Strip filePath to avoid leaking absolute paths to the client
+  return results.map(({ filePath: _filePath, ...summary }) => summary)
+}
+
+/** Public API: returns SessionSummaryWithPath[] -- used by server-side stats enrichment. */
+export async function scanAllSessionsWithPaths(): Promise<SessionSummaryWithPath[]> {
+  return scanSessionsInternal()
 }
 
 export async function getActiveSessions(): Promise<SessionSummary[]> {
