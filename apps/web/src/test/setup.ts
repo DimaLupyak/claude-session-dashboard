@@ -53,6 +53,15 @@ if (typeof window !== 'undefined') {
   })
 }
 
+// Make navigator.clipboard writable so tests can mock it via Object.assign
+if (typeof navigator !== 'undefined') {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: async () => {} },
+    writable: true,
+    configurable: true,
+  })
+}
+
 // Clear localStorage and cleanup after each test
 beforeEach(() => {
   if (typeof window !== 'undefined' && window.localStorage) {
