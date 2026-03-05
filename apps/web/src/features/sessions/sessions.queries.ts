@@ -1,5 +1,5 @@
 import { queryOptions, keepPreviousData } from '@tanstack/react-query'
-import { getSessionList, getActiveSessionList, getPaginatedSessions } from './sessions.server'
+import { getSessionList, getActiveSessionList, getPaginatedSessions } from './sessions.api'
 
 export const sessionListQuery = queryOptions({
   queryKey: ['sessions', 'list'],

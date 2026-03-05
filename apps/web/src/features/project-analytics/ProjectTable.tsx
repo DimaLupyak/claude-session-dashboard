@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { formatDuration, formatRelativeTime } from '@/lib/utils/format'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
-import type { ProjectAnalytics } from './project-analytics.server'
+import type { ProjectAnalytics } from './project-analytics.api'
 
 type SortField = 'projectName' | 'totalSessions' | 'totalMessages' | 'totalDurationMs' | 'lastSessionAt'
 type SortDir = 'asc' | 'desc'

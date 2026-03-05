@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SessionSummary } from '@/lib/parsers/types'
-import { paginateAndFilterSessions } from './sessions.server'
+import { paginateAndFilterSessions } from './sessions.api'
 
 describe('paginateAndFilterSessions', () => {
   const createMockSession = (

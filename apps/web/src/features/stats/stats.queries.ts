@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { getStats } from './stats.server'
+import { getStats } from './stats.api'
 
 export const statsQuery = queryOptions({
   queryKey: ['stats'],
