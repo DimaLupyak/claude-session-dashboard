@@ -41,18 +41,39 @@ gh pr list --state open
 gh issue list --state open --limit 5
 ```
 
+### Task Pipeline
+
+Run `TaskList` to retrieve active tasks from the native task store. Group and display by feature:
+
+```
+Active Tasks:
+  Feature: <story-id>
+  [completed]   Create SSE server fn
+  [in_progress] Add streaming UI
+  [pending]     Unit tests
+
+  N completed, M in-progress, P pending
+```
+
+Also check for active worktrees:
+```bash
+git worktree list
+```
+
+If no tasks and no feature worktrees found, display: "No active features."
+
 ## Display Dashboard
 
 Output a formatted dashboard:
 
 ```
 ========================================
-  SDLC Pipeline Status
+  Claude Session Dashboard -- SDLC Pipeline Status
 ========================================
 
 Branch:    <current branch>
 Status:    <clean / N uncommitted changes>
-Last CI:   <pass/fail — run ID>
+Last CI:   <pass/fail -- run ID>
 
 Quality Gates:
   typecheck:  PASS / FAIL
@@ -66,5 +87,11 @@ Open PRs:
 
 Open Issues:
   <list or "none">
+
+Worktrees:
+  <list from git worktree list, or "none">
+
+Active Tasks:
+  <grouped task list from TaskList, or "No active features">
 ========================================
 ```

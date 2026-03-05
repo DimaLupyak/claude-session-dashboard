@@ -4,7 +4,7 @@ description: Analyze ~/.claude session files to find unused agent skills and red
 user_invocable: true
 arguments:
   - name: project
-    description: "Project path filter (e.g., 'dashboard', 'RAPID'). If omitted, analyzes current project."
+    description: "Project path filter (e.g., 'dashboard'). If omitted, analyzes current project."
     required: false
 ---
 
@@ -50,12 +50,12 @@ For each injected skill, search the agent's **assistant** messages for distincti
 
 | Skill | Keywords to search for |
 |---|---|
+| `uiux` | gray-950, terracotta, design system, bg-gray, border-gray |
 | `database-rules` | migration, RLS, policy, supabase/migrations, ALTER TABLE, CREATE TABLE |
 | `supabase` | supabase client, createClient, supabase.auth, supabase.from, RPC |
 | `tanstack-start` | createServerFn, server function, TanStack Start, SSR |
 | `typescript-rules` | strict typing, Zod, z.object, z.infer, unknown, type guard |
 | `react-rules` | useQuery, useSuspenseQuery, queryOptions, named export, TanStack Query |
-| `uiux` | gray-950, terracotta, design system, bg-gray, border-gray |
 | `testing` | vitest, describe, it, expect, vi.mock, happy-dom, testing-library |
 | `playwright-cli` | playwright, browser, e2e, spec.ts, page.goto |
 | `sdlc` | pipeline, SDLC, acceptance criteria |
@@ -101,15 +101,12 @@ skills:
   - typescript-rules
   - react-rules
   - database-rules    # REMOVE (8% usage, ~1.8K tokens wasted per invocation)
-  - uiux              # REMOVE (10% usage, ~3.2K tokens wasted per invocation)
-  - playwright-cli
 
 # .claude/agents/implementer.md — AFTER
 skills:
   - tanstack-start
   - typescript-rules
   - react-rules
-  - playwright-cli
 ```
 
 ### 5d. Skills Not Assigned to Any Agent

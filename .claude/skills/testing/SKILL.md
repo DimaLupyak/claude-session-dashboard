@@ -28,7 +28,7 @@ import { doThing } from './module'
 ### Rules
 - Test behavior, not implementation
 - Prefer integration tests over unit tests
-- Mock external services (Supabase, APIs, etc), not internal functions
+- Mock external services, not internal functions
 - "close timed out" warning after Vitest is a known nitro issue — ignore
 
 ## Playwright (E2E)
