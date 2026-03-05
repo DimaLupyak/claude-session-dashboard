@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SessionSummary } from '@/lib/parsers/types'
-import { aggregateProjectAnalytics } from './project-analytics.server'
+import { aggregateProjectAnalytics } from './project-analytics.api'
 
 describe('project-analytics', () => {
   const createMockSession = (

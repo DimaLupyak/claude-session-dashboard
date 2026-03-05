@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { getAppInfo } from './app-info.server'
+import { getAppInfo } from './app-info.api'
 
 export const appInfoQuery = queryOptions({
   queryKey: ['app-info'],

@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { getSessionDetail } from './session-detail.server'
+import { getSessionDetail } from './session-detail.api'
 
 export function sessionDetailQuery(sessionId: string, projectPath: string, isActive?: boolean) {
   return queryOptions({
