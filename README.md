@@ -1,5 +1,13 @@
 # Claude Session Dashboard
 
+[![CI](https://github.com/dlupiak/claude-session-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/dlupiak/claude-session-dashboard/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/dlupiak/claude-session-dashboard/actions/workflows/codeql.yml/badge.svg)](https://github.com/dlupiak/claude-session-dashboard/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/dlupiak/claude-session-dashboard)](https://securityscorecards.dev/viewer/?uri=github.com/dlupiak/claude-session-dashboard)
+[![npm version](https://img.shields.io/npm/v/claude-session-dashboard)](https://www.npmjs.com/package/claude-session-dashboard)
+[![npm downloads](https://img.shields.io/npm/dm/claude-session-dashboard)](https://www.npmjs.com/package/claude-session-dashboard)
+[![Node.js](https://img.shields.io/node/v/claude-session-dashboard)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A read-only, local observability dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Scans your `~/.claude` directory to visualize session history, tool usage, token consumption, cost estimates, and activity trends -- all without sending data anywhere.
 
 ```bash
