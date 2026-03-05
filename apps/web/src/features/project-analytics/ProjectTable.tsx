@@ -93,7 +93,7 @@ export function ProjectTable({ projects }: ProjectTableProps) {
                 <Link
                   to="/sessions"
                   search={{ project: project.projectName }}
-                  className="text-sm text-brand-300 hover:underline"
+                  className="text-sm text-brand-500 hover:underline"
                 >
                   {anonymizeProjectName(project.projectName)}
                 </Link>

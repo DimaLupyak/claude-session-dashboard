@@ -199,7 +199,6 @@ function StatsOverview({
         <StatCard
           label="Total Tokens"
           value={formatTokenCount(totalTokens)}
-          sub={cost ? `~${formatUSD(cost.totalUSD)}` : undefined}
         />
         <StatCard
           label="Total Estimated Cost"
