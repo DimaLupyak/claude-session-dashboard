@@ -10,7 +10,7 @@ arguments:
 
 # Browser Investigation
 
-You are investigating **$ARGUMENTS.url** using playwright-cli.
+You are investigating **$ARGUMENTS.url** using Playwright.
 
 ## Steps
 
@@ -20,13 +20,13 @@ You are investigating **$ARGUMENTS.url** using playwright-cli.
 - Check if the dev server is running on :3000; if not, suggest `npm run dev`
 
 ### 2. Navigate
-- Open and navigate: `playwright-cli open <url>`
-- Take a screenshot: `playwright-cli screenshot`
+- Use `mcp__playwright__browser_navigate` to open the URL
+- Take a screenshot with `mcp__playwright__browser_take_screenshot`
 
 ### 3. Inspect
-- Get the accessibility tree: `playwright-cli snapshot`
-- Check for console errors: `playwright-cli console`
-- Check for failed network requests: `playwright-cli network`
+- Use `mcp__playwright__browser_snapshot` to get the accessibility tree
+- Check `mcp__playwright__browser_console_messages` for errors
+- Check `mcp__playwright__browser_network_requests` for failed requests
 
 ### 4. Report
 - Summarize what you see: layout, content, errors
@@ -34,6 +34,6 @@ You are investigating **$ARGUMENTS.url** using playwright-cli.
 - Suggest fixes if issues are found
 
 ## Notes
-- Use `playwright-cli` commands, not MCP tools
+- Use Playwright MCP tools, not Bash-based browser commands
 - Take screenshots at each significant step
-- Close the browser when done: `playwright-cli close`
+- Close the browser when done: `mcp__playwright__browser_close`

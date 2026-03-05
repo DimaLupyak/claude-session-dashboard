@@ -79,7 +79,7 @@ gh pr create --title "<short title>" --body "$(cat <<'EOF'
 ## Test plan
 <checklist of testing steps>
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
@@ -111,6 +111,18 @@ Merge the PR using squash merge:
 
 ```bash
 gh pr merge --squash --delete-branch
+```
+
+After successful merge, clean up any associated worktree:
+
+```bash
+BRANCH=$(gh pr view --json headRefName -q .headRefName 2>/dev/null || echo "")
+if [ -n "$BRANCH" ]; then
+  git worktree list | grep "$BRANCH" | awk '{print $1}' | while read wt; do
+    [ -n "$wt" ] && git worktree remove "$wt" --force 2>/dev/null || true
+  done
+fi
+git worktree prune
 ```
 
 Report success:

@@ -86,7 +86,7 @@ npm run typecheck    # TypeScript checking
 
 ## Product Spec
 
-See `docs/claude-session-dashboard.md`
+See `docs/spec-product.md`
 
 ## Quick Reference
 

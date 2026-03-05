@@ -17,9 +17,9 @@ You are acting as a **Product Owner** creating a well-structured GitHub issue fo
 ### 1. Analyze the Codebase
 - Read `CLAUDE.md` to understand the project architecture
 - Explore the codebase areas relevant to the requested change using Glob, Grep, and Read
-- Identify which feature slices are affected
+- Identify which vertical slices (registry, chat, tasks, inspector) are affected
 - Identify existing patterns, components, and server functions that relate to the change
-- Check `stories/` for any existing stories that overlap
+- Check `InterLink/stories/` for any existing stories that overlap
 
 ### 2. Ask Clarifying Questions
 Use AskUserQuestion to gather missing details. Consider asking about:
@@ -43,7 +43,7 @@ Compose a GitHub issue with this structure:
 <Current state, relevant architecture, motivation>
 
 ## Affected Areas
-- Slice: list affected feature slices
+- Slice: `src/features/<slice>/`
 - Files: list specific files that would change
 - DB: any schema changes needed
 

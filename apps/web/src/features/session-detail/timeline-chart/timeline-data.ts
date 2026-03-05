@@ -125,6 +125,7 @@ export function buildTimelineChartData(
       totalTokens: agent.totalTokens ?? null,
       totalToolUseCount: agent.totalToolUseCount ?? null,
       toolDots,
+      skills: agent.skills?.map((s) => ({ skill: s.skill, args: s.args })) ?? [],
     }
   })
 

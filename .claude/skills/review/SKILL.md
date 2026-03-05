@@ -1,63 +1,58 @@
 ---
 name: review
-description: Run quality gates (typecheck, lint, test, build) then code review all changes against project standards
+description: Code review current changes against project standards
 user_invocable: true
 ---
 
-# Review Pipeline
+# Code Review
 
-Two phases: quality gates first, then code review via the reviewer agent.
+Review all uncommitted changes against project standards.
 
-## Phase 1 — Quality Gates (you run this directly)
+## Steps
 
-Run each gate from `apps/web/`:
-
+### 1. Gather Changes
 ```bash
-cd apps/web && npm run typecheck
-cd apps/web && npm run build
+git diff
+git diff --cached
+git status --short
 ```
 
-**ALL gates must pass before Phase 2.** If any fail, report the errors and stop.
+### 2. Review Criteria
 
-## Phase 2 — Code Review (dispatch `reviewer` agent)
+For each changed file, check:
 
-Only after all quality gates pass, dispatch the reviewer agent:
+**Architecture**
+- Follows Vertical Slice Architecture (no cross-slice imports except via `src/lib/`)
+- No `/services`, `/utils`, `/controllers` directories created
+- Feature code in the correct slice
+
+**TypeScript**
+- No `any` types (use `unknown` + type guards)
+- Proper error handling with typed errors
+- Zod schemas for external data validation
+
+**React**
+- Components use named exports
+- Server vs client boundary is correct
+- No unnecessary `useEffect` for data fetching (use TanStack Query)
+
+**Security**
+- No secrets in code
+- RLS considered for new DB tables
+- External agent responses validated
+
+### 3. Report
+
+Output a structured review:
 
 ```
-Task(
-  subagent_type: "reviewer",
-  description: "Code review current changes",
-  prompt: "Review all uncommitted and staged changes in this repository.
-
-Run these commands to gather changes:
-- git diff
-- git diff --cached
-- git status --short
-
-Review against these criteria:
-
-**Architecture**: Vertical Slice Architecture compliance, no cross-slice imports except via src/lib/
-**TypeScript**: No `any` types, proper error handling, Zod schemas for external data
-**React**: Named exports, TanStack Query for data fetching, no useEffect for fetching
-**Security**: No secrets in code, RLS on new tables, validated responses
-
-Return a structured review:
 ## Review Summary
 - Files reviewed: N
 - Issues found: N (critical: N, warning: N, info: N)
 
 ## Issues
 ### [CRITICAL/WARNING/INFO] filename:line — description
-Suggested fix: ...
-
-Be concise — focus on real issues, not style nitpicks."
-)
 ```
 
-Present the reviewer's findings to the user. If CRITICAL issues exist, they must be fixed before proceeding.
-
-## RULES
-
-- **NEVER perform code review yourself** — always dispatch the reviewer agent
-- You MAY run quality gate commands directly
-- Report both quality gate results and reviewer findings to the user
+### 4. Suggest Fixes
+For each critical or warning issue, provide a specific fix suggestion.

@@ -58,6 +58,8 @@ export interface AgentInvocation {
   durationMs?: number
   model?: string
   toolCalls?: Record<string, number>
+  agentId?: string
+  skills?: SkillInvocation[]
 }
 
 export interface SkillInvocation {
@@ -65,6 +67,8 @@ export interface SkillInvocation {
   args: string | null
   timestamp: string
   toolUseId: string
+  /** How the skill was loaded: 'injected' = from agent frontmatter via <command-name>, 'invoked' = explicit Skill tool call */
+  source?: 'injected' | 'invoked'
 }
 
 export interface TaskItem {
@@ -181,6 +185,15 @@ export interface HistoryEntry {
 
 // --- JSONL message types (raw file format) ---
 
+/**
+ * Raw JSONL message from Claude Code session files.
+ *
+ * Format changes by version:
+ * - <= 2.1.63: Agent dispatch via "Task" tool, progress messages with agent data
+ * - >= 2.1.68: Agent dispatch via "Agent" tool, NO progress messages for agents,
+ *              subagent JSONL files are the only source of agent token/tool data.
+ *              agentId still appears in tool_result text and toolUseResult.
+ */
 export interface RawJsonlMessage {
   type: 'user' | 'assistant' | 'system' | 'progress' | 'file-history-snapshot'
   uuid?: string
@@ -214,6 +227,7 @@ export interface RawJsonlMessage {
   }
   data?: {
     type?: string
+    agentId?: string
     message?: {
       type?: string
       message?: {
@@ -229,12 +243,20 @@ export interface RawJsonlMessage {
       }
     }
   }
+  requestId?: string
   parentToolUseID?: string
   toolUseResult?: {
     totalTokens?: number
     totalToolUseCount?: number
     totalDurationMs?: number
     agentId?: string
+    isAsync?: boolean
+    status?: string
+    retrieval_status?: string
+    task?: {
+      task_id?: string
+      status?: string
+    }
   }
   slug?: string
   subtype?: string

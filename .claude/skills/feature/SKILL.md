@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Full SDLC workflow — plan, implement, review, test, PR
+description: "Full SDLC pipeline: design → plan → implement → review → test → ship. Use this skill when the user wants to BUILD A NEW FEATURE that spans multiple files across database, API, and UI layers — anything requiring architecture design, an implementation plan, and coordinated changes across a vertical slice. Trigger on: /feature command, 'build/implement/add [feature]' requests involving new tables + server functions + UI components, multi-step feature work needing TDD and code review. Do NOT trigger for: bug fixes, refactors, small UI tweaks, single-file changes, CI fixes, test runs, PR reviews, deployments, or documentation updates."
 user_invocable: true
 arguments:
   - name: story-id
@@ -13,179 +13,284 @@ arguments:
 
 # Feature Development Pipeline
 
-You are orchestrating the SDLC pipeline for **$ARGUMENTS.story-id**. You are the ORCHESTRATOR — you delegate ALL work to specialized agents via the Task tool. You NEVER write production code, architecture, tests, or reviews yourself.
+You are orchestrating the SDLC pipeline for **$ARGUMENTS.story-id**. You are the ORCHESTRATOR — you delegate ALL work to specialized agents and chain their outputs together. You NEVER write production code, tests, architecture, or reviews yourself.
 
-## Step 1: Interview (dispatch `architect` agent)
+## Why This Structure Matters
 
-Before any design work, gather requirements by dispatching the architect agent. It will ask the user clarifying questions using AskUserQuestion.
+Each step builds on the previous one's output. The architect's design feeds the plan, the plan feeds the implementer, the implementer's output feeds the reviewer. Breaking this chain means agents work blind and produce lower quality results. Every agent prompt must include the relevant context from prior steps.
 
-```
-Task(
-  subagent_type: "architect",
-  description: "Gather requirements for $ARGUMENTS.story-id",
-  prompt: "You are gathering requirements for feature $ARGUMENTS.story-id: $ARGUMENTS.description
+## Variables You Maintain
 
-Read the project CLAUDE.md for context. Explore the codebase to understand current patterns.
+Track these throughout the pipeline — they form the context chain:
+- `DESIGN` — architect's design document content
+- `PLAN` — implementation plan with bite-sized tasks
+- `WORKTREE` — path to the worktree (../dashboard-$ARGUMENTS.story-id)
+- `TASK_REPORTS` — accumulating list of implementer reports per task
+- `REVIEW_FINDINGS` — review results that need addressing
 
-IMPORTANT: Before designing anything, use AskUserQuestion to interview the user. Ask 2-4 focused questions about:
-- Scope: What exactly should this feature include? What should it NOT include?
-- UX: How should users interact with this? What should it look like?
-- Data: What data is involved? Any new database tables or relationships?
-- Edge cases: What happens on errors, empty states, or unusual inputs?
-- Priority: Which parts are must-have vs nice-to-have?
+---
 
-After getting answers, produce a design document that includes:
-1. What changes are needed and where (affected files/slices)
-2. Data flow (new server functions, queries, UI components)
-3. Database changes (new tables, columns, migrations, RLS policies)
-4. File structure (new files to create, existing files to modify)
-5. Any risks or trade-offs
+## Step 0: Resume or Start
 
-Write the design to docs/designs/$ARGUMENTS.story-id.md
-
-Return the full design as your response so it can be passed to the implementer."
-)
-```
-
-After the architect agent returns:
-- **Present the design to the user** and ask for approval
-- **DO NOT proceed** until the user explicitly approves
-- Save the architect's full output — you will pass it to the implementer
-
-## Step 2: Branch creation (you do this directly)
-
-After user approves the design:
 ```bash
-git checkout -b feature/$ARGUMENTS.story-id-<short-description>
+git worktree list | grep "$ARGUMENTS.story-id" || echo "NO_WORKTREE"
 ```
 
-## Step 3: Implementation (dispatch `implementer` agent)
+- **Worktree exists**: Ask "Resume or start fresh?"
+  - Resume: `cd` to worktree, `TaskList` to show state, skip to first incomplete step.
+  - Fresh: `git worktree remove ../dashboard-$ARGUMENTS.story-id --force`, proceed to Step 1.
+- **No worktree**: Proceed to Step 1.
 
-Use the Task tool to dispatch the implementer agent. **CRITICAL: Include the architect's design in the prompt.**
+---
+
+## Step 1: Design (dispatch `architect`)
+
+The architect explores context and collaborates with the user to produce a design.
 
 ```
-Task(
-  subagent_type: "implementer",
-  description: "Implement $ARGUMENTS.story-id",
-  prompt: "Implement feature $ARGUMENTS.story-id following the approved architecture below.
+Agent(subagent_type: "architect", prompt: "
+  Design feature $ARGUMENTS.story-id: $ARGUMENTS.description
 
-## Approved Architecture
-<paste the FULL architect output here — the design document>
+  IMPORTANT: Use the superpowers:brainstorming skill. Follow its complete process:
+  1. Explore project context — read relevant files, docs, recent commits
+  2. Ask 2-4 clarifying questions via AskUserQuestion (one at a time, multiple choice preferred)
+  3. Propose 2-3 approaches with trade-offs and your recommendation
+  4. Present design section by section
 
-## Instructions
-- Implement slice-by-slice following Vertical Slice Architecture
-- Each slice: route → server functions → queries → UI
-- Run `npm run typecheck` from apps/web/ after each file change
-- Follow all conventions in CLAUDE.md
-- Return a summary of all files created/modified when done"
-)
+  The design document MUST include:
+  - Problem statement and user impact
+  - Chosen approach with rationale
+  - Affected vertical slices and files
+  - Data flow (ASCII diagram)
+  - Database changes with migration SQL (if any)
+  - Task Breakdown table: | Task | Complexity | Files | Dependencies |
+
+  Save to: docs/designs/design-$ARGUMENTS.story-id.md
+  Return the FULL design document content.
+")
 ```
 
-After the implementer returns:
-- Save the implementation summary — you will pass it to the reviewer
+**After return**: Present the design summary to the user. Store `DESIGN` = architect's output.
 
-## Step 4: Quality gates (you run this directly)
+**HARD GATE: DO NOT proceed until user explicitly approves the design.**
 
-Run the quality checks yourself:
+---
+
+## Step 2: Implementation Plan (dispatch `architect`)
+
+Convert the approved design into bite-sized implementation tasks.
+
+```
+Agent(subagent_type: "architect", prompt: "
+  Create an implementation plan for $ARGUMENTS.story-id.
+
+  IMPORTANT: Use the superpowers:writing-plans skill. Follow its complete process.
+
+  Here is the approved design:
+  ---
+  $DESIGN
+  ---
+
+  Requirements:
+  - Each task should be 2-5 minutes of work
+  - Follow TDD: failing test → verify fail → implement → verify pass → commit
+  - Include exact file paths, complete code snippets, and test commands
+  - Reference existing codebase patterns (read relevant files first)
+  - Tasks should be mostly independent where possible
+
+  Save to: docs/plans/$(date +%Y-%m-%d)-$ARGUMENTS.story-id.md
+  Return the FULL plan content.
+")
+```
+
+Store `PLAN` = architect's output. Present the task list to user for awareness (no approval gate needed here).
+
+---
+
+## Step 3: Create Git Worktree
+
 ```bash
-cd apps/web && npm run typecheck
-cd apps/web && npm run build
+BRANCH_SUFFIX=$(echo "$ARGUMENTS.description" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-30)
+git worktree add ../dashboard-$ARGUMENTS.story-id -b "feature/$ARGUMENTS.story-id-${BRANCH_SUFFIX}"
 ```
 
-If gates fail, dispatch the implementer agent AGAIN with the errors:
-```
-Task(
-  subagent_type: "implementer",
-  prompt: "Fix these quality gate failures for $ARGUMENTS.story-id:
-<paste error output>
-
-The implementation summary so far:
-<paste implementer's previous summary>"
-)
-```
-
-Repeat until all gates pass.
-
-## Step 5: Code review (dispatch `reviewer` agent)
-
-Use the Task tool to dispatch the reviewer agent:
-
-```
-Task(
-  subagent_type: "reviewer",
-  description: "Review $ARGUMENTS.story-id implementation",
-  prompt: "Review the implementation for feature $ARGUMENTS.story-id.
-
-Run `git diff` and `git status` to see all changes. Review against:
-- Vertical Slice Architecture compliance
-- TypeScript best practices (no any, Zod validation)
-- React patterns (TanStack Query, named exports)
-- Security (no secrets, validated responses)
-
-## Architecture that was approved:
-<paste the architect's design summary>
-
-## Implementation summary:
-<paste the implementer's summary>
-
-Return a structured review with CRITICAL, WARNING, INFO severity levels."
-)
-```
-
-If the reviewer finds CRITICAL issues, dispatch the implementer to fix them:
-```
-Task(
-  subagent_type: "implementer",
-  prompt: "Fix these review issues for $ARGUMENTS.story-id:
-<paste reviewer's CRITICAL and WARNING items>"
-)
-```
-Then re-run the reviewer until clean.
-
-## Step 6: Tests (dispatch `qa` agent)
-
-Use the Task tool to dispatch the QA agent:
-
-```
-Task(
-  subagent_type: "qa",
-  description: "Write tests for $ARGUMENTS.story-id",
-  prompt: "Write tests for feature $ARGUMENTS.story-id.
-
-## What was implemented:
-<paste implementer's summary of files changed>
-
-Write unit tests (Vitest) for the new server functions and utility logic.
-Co-locate test files next to source files (*.test.ts).
-Run all tests with `npm run test` from apps/web/ to verify they pass.
-Return a summary of tests written and their results."
-)
-```
-
-## Step 7: Commit & PR (you do this directly)
-
-After all agents complete successfully:
-
-1. Stage and commit:
+Copy design and plan docs into the worktree:
 ```bash
-git add <specific files>
-git commit -m "feat: <description> ($ARGUMENTS.story-id)"
+mkdir -p ../dashboard-$ARGUMENTS.story-id/docs/designs ../dashboard-$ARGUMENTS.story-id/docs/plans
+cp docs/designs/design-$ARGUMENTS.story-id.md ../dashboard-$ARGUMENTS.story-id/docs/designs/ 2>/dev/null || true
+cp docs/plans/*$ARGUMENTS.story-id*.md ../dashboard-$ARGUMENTS.story-id/docs/plans/ 2>/dev/null || true
 ```
 
-2. Push and create PR:
+Store `WORKTREE` = ../dashboard-$ARGUMENTS.story-id. All subsequent agents work from this path.
+
+---
+
+## Step 4: Implementation (subagent-driven-development)
+
+Follow the superpowers:subagent-driven-development pattern: one fresh subagent per task, two-stage review after each.
+
+### 4a. Set up task tracking
+
+Create a TaskCreate entry for every task from `PLAN`. This gives the user visibility.
+
+### 4b. Per-task loop
+
+For each task in the plan (sequentially — never parallel implementation):
+
+**1. Dispatch implementer subagent:**
+
+```
+Agent(subagent_type: "implementer", prompt: "
+  You are implementing Task N: [task name] for feature $ARGUMENTS.story-id.
+
+  ## Task Description
+  [FULL TEXT of this task from PLAN — paste it here, do NOT make the subagent read the file]
+
+  ## Context
+  - Feature: $ARGUMENTS.story-id — $ARGUMENTS.description
+  - Working directory: $WORKTREE/apps/web
+  - Design summary: [relevant excerpt from DESIGN for this task]
+  - Previous tasks completed: [list what's done so far, with brief summaries]
+  - This task depends on: [what it builds on]
+
+  ## Your Job
+  IMPORTANT: Use superpowers:test-driven-development skill.
+  1. Write a failing test first
+  2. Run it to verify it fails
+  3. Write minimal implementation to make it pass
+  4. Run tests to verify they pass
+  5. Run typecheck and lint: cd $WORKTREE/apps/web && npm run typecheck && npm run lint
+  6. Commit with a descriptive message
+  7. Self-review (completeness, quality, YAGNI)
+
+  If anything is unclear — ask questions before starting.
+
+  ## Report Format
+  Return: what you implemented, tests written and results, files changed, self-review findings, any concerns.
+")
+```
+
+**2. Dispatch spec compliance reviewer:**
+
+```
+Agent(subagent_type: "reviewer", prompt: "
+  Review spec compliance for Task N of $ARGUMENTS.story-id.
+
+  ## What Was Requested
+  [FULL task text from PLAN]
+
+  ## What Implementer Claims
+  [Paste the implementer's report from step 1]
+
+  ## Your Job
+  Do NOT trust the implementer's report. Read the actual code at $WORKTREE and verify:
+  - All requirements implemented (nothing missing)
+  - No extra/unneeded work (nothing added beyond spec)
+  - No misunderstandings of requirements
+
+  Report: ✅ Spec compliant OR ❌ Issues: [specific list with file:line references]
+")
+```
+
+→ If ❌: dispatch implementer to fix specific issues, then re-review spec compliance.
+
+**3. Dispatch code quality reviewer:**
+
+```
+Agent(subagent_type: "reviewer", prompt: "
+  Review code quality for Task N of $ARGUMENTS.story-id.
+
+  Working directory: $WORKTREE
+  What was implemented: [from implementer report]
+  Requirements: [task text from PLAN]
+
+  Run: git diff HEAD~1 to see the changes for this task.
+
+  Check against project standards:
+  - TypeScript: no 'any', proper error handling, Zod validation at boundaries
+  - React: TanStack Query for data fetching, no useEffect fetching, proper state
+  - Architecture: vertical slice compliance, no /services or /utils
+  - Security: no exposed secrets, input validation
+  - Tests: testing behavior not implementation, good coverage
+
+  Report: Strengths, Issues (CRITICAL/WARNING/INFO), Assessment (approve/needs-work)
+")
+```
+
+→ If CRITICAL/WARNING: dispatch implementer to fix, then re-review quality.
+
+**4. Mark task complete** — TaskUpdate status to completed.
+
+**5. Move to next task** — include completed task summary in the next implementer's context.
+
+### 4c. After all tasks complete
+
+Run full verification yourself (superpowers:verification-before-completion — evidence before claims):
+
 ```bash
-git push -u origin feature/$ARGUMENTS.story-id-<description>
-gh pr create --title "feat: <description>" --body "..."
+cd $WORKTREE/apps/web && npm run typecheck
+cd $WORKTREE/apps/web && npm run lint
+cd $WORKTREE/apps/web && npm run test
+cd $WORKTREE/apps/web && npm run build
 ```
 
-3. Report the PR URL to the user.
+Read and report the actual output. If anything fails, dispatch the implementer with the specific error output. Repeat until all four pass.
 
-## CRITICAL RULES
+---
 
-- **NEVER write production code yourself** — always dispatch the implementer
-- **NEVER design architecture yourself** — always dispatch the architect
-- **NEVER review code yourself** — always dispatch the reviewer
-- **NEVER write tests yourself** — always dispatch the qa agent
-- **ALWAYS pass context between agents** — include previous agent outputs in the next agent's prompt
-- **ALWAYS get user approval** after the architect step before proceeding
-- If an agent fails or produces poor results, dispatch it again with corrective feedback
+## Step 5: Final Holistic Review (dispatch `reviewer`)
+
+After all tasks pass individually, review the feature as a whole:
+
+```
+Agent(subagent_type: "reviewer", prompt: "
+  Final review for feature $ARGUMENTS.story-id: $ARGUMENTS.description
+
+  Working directory: $WORKTREE
+  Run: git diff main...HEAD
+
+  This is a holistic review of the ENTIRE feature. Individual tasks have already passed spec and quality reviews. Focus on:
+  - Cross-task integration: do the pieces fit together correctly?
+  - Consistency: naming, patterns, error handling across all new code
+  - Missing pieces: anything the task-level reviews might have missed?
+  - Architecture: does the overall implementation match the design?
+  - Security: end-to-end data flow, auth, RLS
+
+  Design document for reference:
+  ---
+  $DESIGN
+  ---
+
+  Return: CRITICAL / WARNING / INFO findings with file:line references.
+")
+```
+
+If CRITICAL: dispatch implementer to fix → re-review.
+
+---
+
+## Step 6: Ship
+
+**User confirmation required.** Present a summary:
+- Branch name and commit count
+- Files changed (git diff --stat main...HEAD)
+- All quality gates: ✅ typecheck, ✅ lint, ✅ test, ✅ build
+- Review status: all findings resolved
+- Proposed PR title and description
+
+Ask: "Ready to ship? (yes/no)"
+
+- **No**: Ask what needs to change.
+- **Yes**: Invoke the `/ship` skill from the worktree directory. It handles commit, push, PR, CI check, merge, and worktree cleanup.
+
+---
+
+## Critical Rules
+
+1. **NEVER** write production code, tests, designs, or reviews yourself — always dispatch an agent
+2. **NEVER** proceed past Step 1 without explicit user approval of the design
+3. **ALWAYS** paste full context into agent prompts — design excerpts, plan task text, previous reports
+4. **ALWAYS** run verification commands yourself and read the output before claiming success
+5. **ALWAYS** use TaskCreate/TaskUpdate to track each plan task through the pipeline
+6. If an agent fails or produces poor results, dispatch it again with the error output and specific corrective instructions — don't try to fix it yourself
+7. Tell agents which superpowers skills to use — they have access but need the instruction

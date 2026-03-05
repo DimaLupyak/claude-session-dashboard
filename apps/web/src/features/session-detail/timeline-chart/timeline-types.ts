@@ -22,6 +22,7 @@ export interface AgentLaneData {
   totalTokens: number | null
   totalToolUseCount: number | null
   toolDots: AgentToolDot[]
+  skills?: Array<{ skill: string; args: string | null }>
 }
 
 export interface SkillMarkerData {

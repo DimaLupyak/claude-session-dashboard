@@ -59,17 +59,17 @@ If reproducing a specific test:
 - Unit: `npx vitest run <test-file>`
 - E2E: `npx playwright test <spec-file>`
 
-### 4. Investigate with playwright-cli (if E2E failure)
+### 4. Investigate with Playwright (if E2E failure)
 
 If the failure is an E2E test or a visual/runtime bug:
 
 1. Start the dev server if not running: check `lsof -i :3000`
-2. Open the failing page: `playwright-cli open <url>`
-3. Take a screenshot: `playwright-cli screenshot`
-4. Check console errors: `playwright-cli console`
-5. Check network failures: `playwright-cli network`
-6. Get the accessibility tree: `playwright-cli snapshot`
-7. Interact as the test would — `playwright-cli click`, `fill`, etc.
+2. Navigate to the failing page: `mcp__playwright__browser_navigate`
+3. Take a screenshot: `mcp__playwright__browser_take_screenshot`
+4. Check console errors: `mcp__playwright__browser_console_messages`
+5. Check network failures: `mcp__playwright__browser_network_requests`
+6. Get the accessibility tree: `mcp__playwright__browser_snapshot`
+7. Interact as the test would — click, fill forms, etc.
 8. Compare actual behavior with what the test expects
 
 ### 5. Fix the Issue
@@ -116,4 +116,4 @@ Output a summary:
   - Different Node.js versions
   - CI-specific caching issues
 - Don't disable or skip tests to "fix" CI — fix the underlying issue
-- Close the browser when done: `playwright-cli close`
+- Close the Playwright browser when done: `mcp__playwright__browser_close`

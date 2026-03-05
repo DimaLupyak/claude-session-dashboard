@@ -47,3 +47,4 @@ If any check fails, show the first 20 lines of errors and suggest fixes.
 
 ## Notes
 - The "close timed out" warning after Vitest is a known nitro issue — ignore it
+- Pre-existing type errors in `src/routes/demo/` should be ignored
