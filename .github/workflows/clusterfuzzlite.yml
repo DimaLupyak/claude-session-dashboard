@@ -29,6 +29,7 @@ jobs:
         uses: google/clusterfuzzlite/actions/build_fuzzers@52ecc61cb587ee99c26825a112a21abf19c7448c
         with:
           language: javascript
+          sanitizer: none
 
   fuzz-pr:
     name: Fuzz (pull request)
@@ -48,11 +49,13 @@ jobs:
         uses: google/clusterfuzzlite/actions/build_fuzzers@52ecc61cb587ee99c26825a112a21abf19c7448c
         with:
           language: javascript
+          sanitizer: none
 
       - name: Run fuzzers
         uses: google/clusterfuzzlite/actions/run_fuzzers@52ecc61cb587ee99c26825a112a21abf19c7448c
         with:
           language: javascript
+          sanitizer: none
           fuzz-seconds: 300
           mode: code-change
           output-sarif: true
@@ -81,11 +84,13 @@ jobs:
         uses: google/clusterfuzzlite/actions/build_fuzzers@52ecc61cb587ee99c26825a112a21abf19c7448c
         with:
           language: javascript
+          sanitizer: none
 
       - name: Run fuzzers
         uses: google/clusterfuzzlite/actions/run_fuzzers@52ecc61cb587ee99c26825a112a21abf19c7448c
         with:
           language: javascript
+          sanitizer: none
           fuzz-seconds: 600
           mode: batch
           output-sarif: true
