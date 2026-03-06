@@ -11,6 +11,7 @@ dist/
 .playwright-mcp/
 playwright-report/
 test-results/
+coverage/
 blob-report/
 **/e2e/screenshots/
 docs/marketing/
