@@ -7,6 +7,10 @@ on:
         description: 'Version to release (e.g. 0.5.0)'
         required: true
         type: string
+      npm_token:
+        description: 'npm publish token'
+        required: true
+        type: string
       dry_run:
         description: 'Run without publishing'
         required: false
@@ -109,7 +113,7 @@ jobs:
         working-directory: apps/web
         run: npm publish --provenance --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
 
       - name: Dry run summary
         if: ${{ inputs.dry_run }}
