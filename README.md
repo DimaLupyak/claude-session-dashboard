@@ -99,20 +99,6 @@ npm install -g claude-session-dashboard
 claude-dashboard
 ```
 
-### Using Docker
-
-```bash
-docker run -v ~/.claude:/home/node/.claude:ro -p 3000:3000 ghcr.io/dlupiak/claude-session-dashboard
-```
-
-Or with Docker Compose:
-
-```bash
-git clone https://github.com/dlupiak/claude-session-dashboard.git
-cd claude-session-dashboard
-docker compose up
-```
-
 ### From source
 
 ```bash
@@ -205,7 +191,6 @@ If you find this project useful, consider giving it a star -- it helps others di
 
 - [GitHub](https://github.com/dlupiak/claude-session-dashboard)
 - [npm](https://www.npmjs.com/package/claude-session-dashboard)
-- [Docker](https://github.com/dlupiak/claude-session-dashboard/pkgs/container/claude-session-dashboard)
 - [Issues](https://github.com/dlupiak/claude-session-dashboard/issues)
 - [Discussions](https://github.com/dlupiak/claude-session-dashboard/discussions)
 
