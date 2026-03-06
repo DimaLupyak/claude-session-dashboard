@@ -1,0 +1,89 @@
+name: SLSA Provenance
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  # Build the release artifact and compute its hash so the SLSA generator
+  # can produce a verifiable provenance document without re-running the build.
+  build:
+    name: Build Release Artifact
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ./apps/web
+    outputs:
+      artifact-name: ${{ steps.artifact.outputs.name }}
+      artifact-digest: ${{ steps.hash.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ./apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Prune dev dependencies
+        run: npm prune --production
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release tarball
+        id: artifact
+        working-directory: ./apps/web
+        run: |
+          cp ../../LICENSE ./LICENSE
+          ARTIFACT="claude-session-dashboard-v${{ steps.version.outputs.version }}.tar.gz"
+          tar -czf "${ARTIFACT}" \
+            bin/ \
+            dist/ \
+            node_modules/ \
+            package.json \
+            LICENSE
+          echo "name=${ARTIFACT}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute artifact digest (sha256)
+        id: hash
+        working-directory: ./apps/web
+        run: |
+          DIGEST=$(sha256sum "${{ steps.artifact.outputs.name }}" | base64 -w0)
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact for provenance job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-artifact
+          path: ./apps/web/${{ steps.artifact.outputs.name }}
+          if-no-files-found: error
+
+  # Runs in an isolated job so the SLSA generator can attest the build
+  # provenance from a separate, trusted workflow context.
+  provenance:
+    name: Generate SLSA Provenance
+    needs: [build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.artifact-digest }}
+      upload-assets: true

@@ -12,12 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     defaults:
       run:
         working-directory: ./apps/web
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
@@ -49,6 +53,11 @@ jobs:
             node_modules/ \
             package.json \
             LICENSE
+
+      - name: Generate SLSA provenance attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: ./apps/web/claude-session-dashboard-v${{ steps.version.outputs.version }}.tar.gz
 
       - name: Upload release tarball
         env:
