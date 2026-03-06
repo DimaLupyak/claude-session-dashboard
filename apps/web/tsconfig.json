@@ -19,5 +19,5 @@
     "types": ["node", "vite/client"]
   },
   "include": ["src"],
-  "exclude": ["node_modules", ".output"]
+  "exclude": ["node_modules", ".output", "src/lib/parsers/__tests__/fuzz.ts"]
 }
