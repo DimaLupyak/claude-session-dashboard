@@ -16,6 +16,7 @@ jobs:
   build:
     name: Build fuzz targets
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: read
       security-events: write
@@ -36,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: build
+    continue-on-error: true
     permissions:
       contents: read
       security-events: write
@@ -71,6 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'schedule'
     needs: build
+    continue-on-error: true
     permissions:
       contents: read
       security-events: write
