@@ -35,7 +35,7 @@ jobs:
   fuzz-pr:
     name: Fuzz (pull request)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     needs: build
     continue-on-error: true
     permissions:
