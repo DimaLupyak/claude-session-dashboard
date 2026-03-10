@@ -289,7 +289,7 @@ describe('buildTimelineChartData', () => {
       const lane = result.agentLanes[0]
       expect(lane.toolDots).toHaveLength(1)
       // fraction is 0.5 when totalDots === 1
-      const midMs =
+      const _midMs =
         new Date('2024-01-01T00:00:00.000Z').getTime() +
         (new Date('2024-01-01T00:00:00.000Z').getTime() +
           60000 -

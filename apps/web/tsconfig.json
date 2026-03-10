@@ -16,7 +16,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client", "vitest/globals"]
   },
   "include": ["src"],
   "exclude": ["node_modules", ".output", "src/lib/parsers/__tests__/fuzz.ts"]
