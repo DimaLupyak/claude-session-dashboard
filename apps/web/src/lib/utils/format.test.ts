@@ -71,7 +71,9 @@ describe('formatUSD', () => {
   it('rounds correctly at boundaries', () => {
     // Just below $100
     expect(formatUSD(99.994)).toBe('$99.99')
-    expect(formatUSD(99.995)).toBe('$100.00') // Rounds up in toFixed(2)
+    // Note: 99.995 is avoided here because IEEE 754 cannot represent it exactly,
+    // making the rounding behavior of toFixed(2) engine-dependent.
+    expect(formatUSD(99.996)).toBe('$100.00') // Unambiguously rounds up in toFixed(2)
 
     // Just at $100
     expect(formatUSD(99.999)).toBe('$100.00')

@@ -212,7 +212,7 @@ describe('session-scanner', () => {
       expect(result[1].sessionId).toBe('session-1')
     })
 
-    it('skips sessions where fs.stat fails', async () => {
+    it('skips sessions where fs.stat resolves null', async () => {
       const {
         scanAllSessions,
         mockScanProjects,
@@ -220,8 +220,22 @@ describe('session-scanner', () => {
       } = await importScanner()
 
       mockScanProjects.mockResolvedValue([makeProject()])
-      // stat rejects — the catch(() => null) in source returns null, skip entry
       mockStat.mockResolvedValue(null)
+
+      const result = await scanAllSessions()
+
+      expect(result).toEqual([])
+    })
+
+    it('skips sessions where fs.stat rejects', async () => {
+      const {
+        scanAllSessions,
+        mockScanProjects,
+        mockStat,
+      } = await importScanner()
+
+      mockScanProjects.mockResolvedValue([makeProject()])
+      mockStat.mockRejectedValue(new Error('ENOENT'))
 
       const result = await scanAllSessions()
 
