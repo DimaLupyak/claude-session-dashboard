@@ -17,6 +17,16 @@ export const SettingsSchema = z.object({
   pricingOverrides: z
     .record(z.string(), ModelPricingOverrideSchema)
     .default({}),
+  dataSources: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        path: z.string(),
+        enabled: z.boolean().default(true),
+      }),
+    )
+    .default([]),
   updatedAt: z.string().datetime().optional(),
 })
 
@@ -132,6 +142,7 @@ export const DEFAULT_SETTINGS: Settings = {
   version: 1,
   subscriptionTier: 'pro',
   pricingOverrides: {},
+  dataSources: [],
 }
 
 // --- Helpers ---

@@ -210,6 +210,7 @@ describe('getMergedPricing', () => {
     const settings: Settings = {
       version: 1,
       subscriptionTier: 'pro',
+      dataSources: [],
       pricingOverrides: {
         'claude-sonnet-4': {
           inputPerMTok: 5.0,
@@ -258,6 +259,7 @@ describe('getMergedPricing', () => {
       version: 1,
       subscriptionTier: 'pro',
       pricingOverrides: overrides,
+      dataSources: [],
     }
 
     const result = getMergedPricing(settings)

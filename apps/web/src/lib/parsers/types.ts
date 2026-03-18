@@ -18,6 +18,12 @@ export interface SessionSummary {
   model: string | null
   version: string | null
   fileSizeBytes: number
+  /** Which DataSource this came from, e.g. 'primary', 'wsl-ubuntu-user' */
+  sourceId?: string
+  /** Display label for the source, e.g. 'Windows', 'WSL - Ubuntu' */
+  sourceLabel?: string
+  /** Platform of the DataSource this came from */
+  sourcePlatform?: 'windows' | 'wsl' | 'macos' | 'linux'
 }
 
 // --- Session detail (full streaming parse) ---

@@ -12,6 +12,8 @@ vi.mock('node:fs', () => ({
 
 vi.mock('@/lib/utils/claude-path', () => ({
   getStatsPath: vi.fn(() => '/mock/.claude/stats-cache.json'),
+  getStatsPathFor: vi.fn((source: { claudeDir: string }) => `${source.claudeDir}/stats-cache.json`),
+  getDataSources: vi.fn(),
 }))
 
 vi.mock('@/lib/cache/disk-cache', () => ({
@@ -403,5 +405,325 @@ describe('hour bucketing (via computeStatsFromSessions)', () => {
     expect(result).not.toBeNull()
     // hourCounts should be empty (skipped due to empty startedAt)
     expect(Object.keys(result!.hourCounts)).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// mergeStatsCaches — pure function for multi-source stats aggregation
+// ---------------------------------------------------------------------------
+
+describe('mergeStatsCaches', () => {
+  // Import directly since it's a pure function (no module-level state to reset)
+  let mergeStatsCaches: typeof import('./stats-parser').mergeStatsCaches
+
+  beforeEach(async () => {
+    vi.resetModules()
+    const mod = await import('./stats-parser')
+    mergeStatsCaches = mod.mergeStatsCaches
+  })
+
+  it('returns null for empty array', () => {
+    expect(mergeStatsCaches([])).toBeNull()
+  })
+
+  it('returns single cache unchanged', () => {
+    const cache = makeStatsCache({ totalSessions: 10, totalMessages: 100 })
+    const result = mergeStatsCaches([cache])
+    expect(result).toEqual(cache)
+  })
+
+  it('sums dailyActivity across caches by date', () => {
+    const cache1 = makeStatsCache({
+      dailyActivity: [
+        { date: '2026-03-01', messageCount: 5, sessionCount: 2, toolCallCount: 10 },
+        { date: '2026-03-02', messageCount: 3, sessionCount: 1, toolCallCount: 6 },
+      ],
+    })
+    const cache2 = makeStatsCache({
+      dailyActivity: [
+        { date: '2026-03-01', messageCount: 7, sessionCount: 3, toolCallCount: 4 },
+        { date: '2026-03-03', messageCount: 2, sessionCount: 1, toolCallCount: 1 },
+      ],
+    })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.dailyActivity).toEqual([
+      { date: '2026-03-01', messageCount: 12, sessionCount: 5, toolCallCount: 14 },
+      { date: '2026-03-02', messageCount: 3, sessionCount: 1, toolCallCount: 6 },
+      { date: '2026-03-03', messageCount: 2, sessionCount: 1, toolCallCount: 1 },
+    ])
+  })
+
+  it('sums dailyModelTokens across caches by date and model', () => {
+    const cache1 = makeStatsCache({
+      dailyModelTokens: [
+        { date: '2026-03-01', tokensByModel: { 'claude-opus-4-6': 100, 'claude-sonnet-4-6': 50 } },
+      ],
+    })
+    const cache2 = makeStatsCache({
+      dailyModelTokens: [
+        { date: '2026-03-01', tokensByModel: { 'claude-opus-4-6': 200, 'claude-haiku-3.5': 30 } },
+        { date: '2026-03-02', tokensByModel: { 'claude-sonnet-4-6': 80 } },
+      ],
+    })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.dailyModelTokens).toEqual([
+      { date: '2026-03-01', tokensByModel: { 'claude-opus-4-6': 300, 'claude-sonnet-4-6': 50, 'claude-haiku-3.5': 30 } },
+      { date: '2026-03-02', tokensByModel: { 'claude-sonnet-4-6': 80 } },
+    ])
+  })
+
+  it('sums modelUsage across caches by model', () => {
+    const cache1 = makeStatsCache({
+      modelUsage: {
+        'claude-opus-4-6': { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 10, cacheCreationInputTokens: 5 },
+      },
+    })
+    const cache2 = makeStatsCache({
+      modelUsage: {
+        'claude-opus-4-6': { inputTokens: 200, outputTokens: 80, cacheReadInputTokens: 20, cacheCreationInputTokens: 15 },
+        'claude-sonnet-4-6': { inputTokens: 50, outputTokens: 30, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
+      },
+    })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.modelUsage).toEqual({
+      'claude-opus-4-6': { inputTokens: 300, outputTokens: 130, cacheReadInputTokens: 30, cacheCreationInputTokens: 20 },
+      'claude-sonnet-4-6': { inputTokens: 50, outputTokens: 30, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
+    })
+  })
+
+  it('takes earliest firstSessionDate', () => {
+    const cache1 = makeStatsCache({ firstSessionDate: '2026-03-10T00:00:00.000Z' })
+    const cache2 = makeStatsCache({ firstSessionDate: '2026-01-15T00:00:00.000Z' })
+    const cache3 = makeStatsCache({ firstSessionDate: '2026-02-20T00:00:00.000Z' })
+
+    const result = mergeStatsCaches([cache1, cache2, cache3])!
+
+    expect(result.firstSessionDate).toBe('2026-01-15T00:00:00.000Z')
+  })
+
+  it('sums totalSessions and totalMessages', () => {
+    const cache1 = makeStatsCache({ totalSessions: 10, totalMessages: 100 })
+    const cache2 = makeStatsCache({ totalSessions: 5, totalMessages: 40 })
+    const cache3 = makeStatsCache({ totalSessions: 3, totalMessages: 20 })
+
+    const result = mergeStatsCaches([cache1, cache2, cache3])!
+
+    expect(result.totalSessions).toBe(18)
+    expect(result.totalMessages).toBe(160)
+  })
+
+  it('takes the longest session by duration', () => {
+    const cache1 = makeStatsCache({
+      longestSession: { sessionId: 'short', duration: 1000, messageCount: 5, timestamp: '2026-03-01T00:00:00.000Z' },
+    })
+    const cache2 = makeStatsCache({
+      longestSession: { sessionId: 'long', duration: 9999, messageCount: 50, timestamp: '2026-03-02T00:00:00.000Z' },
+    })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.longestSession).toEqual({
+      sessionId: 'long',
+      duration: 9999,
+      messageCount: 50,
+      timestamp: '2026-03-02T00:00:00.000Z',
+    })
+  })
+
+  it('sums hourCounts across caches', () => {
+    const cache1 = makeStatsCache({ hourCounts: { '9': 3, '14': 2 } })
+    const cache2 = makeStatsCache({ hourCounts: { '9': 1, '17': 5 } })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.hourCounts).toEqual({ '9': 4, '14': 2, '17': 5 })
+  })
+
+  it('takes the latest lastComputedDate', () => {
+    const cache1 = makeStatsCache({ lastComputedDate: '2026-03-01T00:00:00.000Z' })
+    const cache2 = makeStatsCache({ lastComputedDate: '2026-03-15T00:00:00.000Z' })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.lastComputedDate).toBe('2026-03-15T00:00:00.000Z')
+  })
+
+  it('sums totalSpeculationTimeSavedMs when present', () => {
+    const cache1 = makeStatsCache({ totalSpeculationTimeSavedMs: 1000 })
+    const cache2 = makeStatsCache({ totalSpeculationTimeSavedMs: 2500 })
+    const cache3 = makeStatsCache({}) // no speculation time
+
+    const result = mergeStatsCaches([cache1, cache2, cache3])!
+
+    expect(result.totalSpeculationTimeSavedMs).toBe(3500)
+  })
+
+  it('preserves optional modelUsage fields (webSearchRequests, costUSD)', () => {
+    const cache1 = makeStatsCache({
+      modelUsage: {
+        'claude-opus-4-6': {
+          inputTokens: 100, outputTokens: 50,
+          cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+          webSearchRequests: 3, costUSD: 0.50,
+        },
+      },
+    })
+    const cache2 = makeStatsCache({
+      modelUsage: {
+        'claude-opus-4-6': {
+          inputTokens: 200, outputTokens: 80,
+          cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+          webSearchRequests: 2, costUSD: 0.30,
+        },
+      },
+    })
+
+    const result = mergeStatsCaches([cache1, cache2])!
+
+    expect(result.modelUsage['claude-opus-4-6']).toEqual({
+      inputTokens: 300, outputTokens: 130,
+      cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+      webSearchRequests: 5, costUSD: 0.80,
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseStatsFrom — parse stats for a specific DataSource
+// ---------------------------------------------------------------------------
+
+describe('parseStatsFrom', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function freshParseStatsFrom() {
+    vi.resetModules()
+    const mod = await import('./stats-parser')
+    return mod.parseStatsFrom
+  }
+
+  it('reads stats from the source-specific path', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { readDiskCache } = await import('@/lib/cache/disk-cache')
+    const parseStatsFrom = await freshParseStatsFrom()
+
+    const stats = makeStatsCache()
+    const source = { id: 'primary', label: 'macOS', claudeDir: '/home/user/.claude', platform: 'macos' as const, available: true }
+
+    vi.mocked(fsMock.stat).mockResolvedValue(makeStat(2_000_000) as never)
+    vi.mocked(readDiskCache).mockReturnValue(null)
+    vi.mocked(fsMock.readFile).mockResolvedValue(JSON.stringify(stats) as never)
+
+    const result = await parseStatsFrom(source)
+
+    expect(result).toEqual(stats)
+    // Should read from the source-specific path
+    expect(fsMock.readFile).toHaveBeenCalledWith('/home/user/.claude/stats-cache.json', 'utf-8')
+  })
+
+  it('returns null when stats file does not exist for source', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { scanAllSessionsWithPaths } = await import('@/lib/scanner/session-scanner')
+    const parseStatsFrom = await freshParseStatsFrom()
+
+    const source = { id: 'wsl-ubuntu', label: 'WSL - Ubuntu', claudeDir: '/wsl/home/.claude', platform: 'wsl' as const, available: true }
+
+    vi.mocked(fsMock.stat).mockRejectedValue(new Error('ENOENT'))
+    // computeStatsFromSessions will be called as fallback — mock it to return empty
+    vi.mocked(scanAllSessionsWithPaths).mockResolvedValue([])
+
+    const result = await parseStatsFrom(source)
+
+    // Falls back to computeStatsFromSessions which returns a minimal stats object
+    expect(result).not.toBeNull()
+    expect(result?.totalSessions).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseStatsMultiSource — aggregate stats across all data sources
+// ---------------------------------------------------------------------------
+
+describe('parseStatsMultiSource', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function freshModule() {
+    vi.resetModules()
+    return await import('./stats-parser')
+  }
+
+  it('returns null when no sources have stats', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { getDataSources } = await import('@/lib/utils/claude-path')
+    const { scanAllSessionsWithPaths } = await import('@/lib/scanner/session-scanner')
+    const mod = await freshModule()
+
+    // All sources unavailable
+    vi.mocked(getDataSources).mockResolvedValue([
+      { id: 'primary', label: 'macOS', claudeDir: '/no-exist/.claude', platform: 'macos' as const, available: false },
+    ])
+
+    vi.mocked(fsMock.stat).mockRejectedValue(new Error('ENOENT'))
+    vi.mocked(scanAllSessionsWithPaths).mockRejectedValue(new Error('no sessions'))
+
+    const result = await mod.parseStatsMultiSource()
+
+    expect(result).toBeNull()
+  })
+
+  it('returns single-source stats when only one source available', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { getDataSources } = await import('@/lib/utils/claude-path')
+    const { readDiskCache } = await import('@/lib/cache/disk-cache')
+    const mod = await freshModule()
+
+    const stats = makeStatsCache({ totalSessions: 7, totalMessages: 70 })
+
+    vi.mocked(getDataSources).mockResolvedValue([
+      { id: 'primary', label: 'macOS', claudeDir: '/home/.claude', platform: 'macos' as const, available: true },
+    ])
+    vi.mocked(fsMock.stat).mockResolvedValue(makeStat(1_000_000) as never)
+    vi.mocked(readDiskCache).mockReturnValue(stats)
+
+    const result = await mod.parseStatsMultiSource()
+
+    expect(result).toEqual(stats)
+  })
+
+  it('merges stats from multiple sources', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { getDataSources } = await import('@/lib/utils/claude-path')
+    const { readDiskCache } = await import('@/lib/cache/disk-cache')
+    const mod = await freshModule()
+
+    const stats1 = makeStatsCache({ totalSessions: 10, totalMessages: 100, hourCounts: { '9': 3 } })
+    const stats2 = makeStatsCache({ totalSessions: 5, totalMessages: 40, hourCounts: { '9': 1, '14': 2 } })
+
+    vi.mocked(getDataSources).mockResolvedValue([
+      { id: 'primary', label: 'macOS', claudeDir: '/home1/.claude', platform: 'macos' as const, available: true },
+      { id: 'wsl-ubuntu', label: 'WSL - Ubuntu', claudeDir: '/home2/.claude', platform: 'wsl' as const, available: true },
+    ])
+
+    vi.mocked(fsMock.stat).mockResolvedValue(makeStat(1_000_000) as never)
+    // Return different stats for each source path
+    vi.mocked(readDiskCache)
+      .mockReturnValueOnce(stats1)
+      .mockReturnValueOnce(stats2)
+
+    const result = await mod.parseStatsMultiSource()
+
+    expect(result).not.toBeNull()
+    expect(result!.totalSessions).toBe(15)
+    expect(result!.totalMessages).toBe(140)
+    expect(result!.hourCounts).toEqual({ '9': 4, '14': 2 })
   })
 })

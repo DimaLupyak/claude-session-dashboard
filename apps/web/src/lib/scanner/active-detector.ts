@@ -12,8 +12,9 @@ const ACTIVE_THRESHOLD_MS = 120_000 // 2 minutes
 export async function isSessionActive(
   projectDirName: string,
   sessionId: string,
+  projectsDirOverride?: string,
 ): Promise<boolean> {
-  const projectsDir = getProjectsDir()
+  const projectsDir = projectsDirOverride ?? getProjectsDir()
   const jsonlPath = path.join(projectsDir, projectDirName, `${sessionId}.jsonl`)
   const lockDirPath = path.join(projectsDir, projectDirName, sessionId)
 
