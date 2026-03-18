@@ -141,6 +141,9 @@ export async function parseDetail(
   const contextSnapshots: ContextWindowSnapshot[] = []
   let assistantTurnIndex = 0
 
+  // Dedup: skip token accumulation for repeated requestIds (same API call logged multiple times)
+  const seenRequestIds = new Set<string>()
+
   const stream = fs.createReadStream(filePath, { encoding: 'utf-8' })
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
 
@@ -166,8 +169,13 @@ export async function parseDetail(
         agentProgressModel.set(parentId, progressModel)
       }
 
+      // Deduplicate progress messages by requestId — same API call can appear multiple times
+      const progressRequestId = msg.requestId
+      const isNewProgressRequest = !progressRequestId || !seenRequestIds.has(progressRequestId)
+      if (progressRequestId) seenRequestIds.add(progressRequestId)
+
       const usage = msg.data?.message?.message?.usage
-      if (usage) {
+      if (usage && isNewProgressRequest) {
         const existing = agentProgressTokens.get(parentId) ?? {
           inputTokens: 0,
           outputTokens: 0,
@@ -304,28 +312,36 @@ export async function parseDetail(
           cacheReadInputTokens: u.cache_read_input_tokens ?? 0,
           cacheCreationInputTokens: u.cache_creation_input_tokens ?? 0,
         }
-        totalTokens.inputTokens += tokens.inputTokens
-        totalTokens.outputTokens += tokens.outputTokens
-        totalTokens.cacheReadInputTokens += tokens.cacheReadInputTokens
-        totalTokens.cacheCreationInputTokens += tokens.cacheCreationInputTokens
 
-        // Track per-model token usage
-        if (msg.message.model) {
-          const modelId = msg.message.model
-          const existing = tokensByModel[modelId] ?? {
-            inputTokens: 0,
-            outputTokens: 0,
-            cacheReadInputTokens: 0,
-            cacheCreationInputTokens: 0,
+        // Deduplicate by requestId — same API call can appear in multiple JSONL lines
+        const requestId = msg.requestId
+        const isNewRequest = !requestId || !seenRequestIds.has(requestId)
+        if (requestId) seenRequestIds.add(requestId)
+
+        if (isNewRequest) {
+          totalTokens.inputTokens += tokens.inputTokens
+          totalTokens.outputTokens += tokens.outputTokens
+          totalTokens.cacheReadInputTokens += tokens.cacheReadInputTokens
+          totalTokens.cacheCreationInputTokens += tokens.cacheCreationInputTokens
+
+          // Track per-model token usage
+          if (msg.message.model) {
+            const modelId = msg.message.model
+            const existing = tokensByModel[modelId] ?? {
+              inputTokens: 0,
+              outputTokens: 0,
+              cacheReadInputTokens: 0,
+              cacheCreationInputTokens: 0,
+            }
+            existing.inputTokens += tokens.inputTokens
+            existing.outputTokens += tokens.outputTokens
+            existing.cacheReadInputTokens += tokens.cacheReadInputTokens
+            existing.cacheCreationInputTokens += tokens.cacheCreationInputTokens
+            tokensByModel[modelId] = existing
           }
-          existing.inputTokens += tokens.inputTokens
-          existing.outputTokens += tokens.outputTokens
-          existing.cacheReadInputTokens += tokens.cacheReadInputTokens
-          existing.cacheCreationInputTokens += tokens.cacheCreationInputTokens
-          tokensByModel[modelId] = existing
         }
 
-        // Track context window snapshot
+        // Track context window snapshot (always — tracks what was sent to the API, not billing)
         const contextSize =
           tokens.inputTokens +
           tokens.cacheReadInputTokens +
@@ -347,7 +363,7 @@ export async function parseDetail(
           timestamp: msg.timestamp ?? '',
           model: msg.message.model,
           toolCalls,
-          tokens,
+          tokens: isNewRequest ? tokens : undefined,
           stopReason: msg.message.stop_reason,
         })
         continue

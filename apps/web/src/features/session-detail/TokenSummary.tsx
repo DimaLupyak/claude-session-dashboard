@@ -9,7 +9,7 @@ export function TokenSummary({ tokens }: { tokens: TokenUsage }) {
     tokens.cacheCreationInputTokens
 
   const items = [
-    { label: 'Input', value: tokens.inputTokens, color: 'text-brand-400' },
+    { label: 'Input (non-cached)', value: tokens.inputTokens, color: 'text-brand-400' },
     { label: 'Output', value: tokens.outputTokens, color: 'text-emerald-400' },
     {
       label: 'Cache Read',
@@ -25,7 +25,15 @@ export function TokenSummary({ tokens }: { tokens: TokenUsage }) {
 
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
-      <h3 className="text-sm font-semibold text-gray-300">Token Usage</h3>
+      <h3 className="text-sm font-semibold text-gray-300">
+        Token Usage{' '}
+        <span
+          className="text-[10px] text-gray-500 cursor-help"
+          title="Tokens as reported by the API. Input tokens reflect only non-cached tokens billed at full rate. Cache read/create tokens are billed at discounted rates."
+        >
+          (API-billed)
+        </span>
+      </h3>
       <p className="mt-1 text-2xl font-bold text-gray-100">
         {formatTokenCount(activeTotal)}
       </p>
