@@ -195,6 +195,45 @@ describe('isSessionActive', () => {
     })
   })
 
+  describe('projectsDirOverride', () => {
+    it('uses projectsDirOverride when provided instead of default getProjectsDir()', async () => {
+      const now = 1_700_000_000_000
+      vi.setSystemTime(now)
+
+      const mtimeMs = now - 30_000 // recent
+      const customDir = '/custom/override/projects'
+
+      mockStat
+        .mockResolvedValueOnce(makeStatResult(mtimeMs))
+        .mockResolvedValueOnce(makeStatResult(mtimeMs, true))
+
+      const result = await isSessionActive(PROJECT_DIR, SESSION_ID, customDir)
+
+      expect(result).toBe(true)
+      // Should use the override dir, not the default /fake/projects
+      expect(mockStat).toHaveBeenCalledWith(`${customDir}/${PROJECT_DIR}/${SESSION_ID}.jsonl`)
+      expect(mockStat).toHaveBeenCalledWith(`${customDir}/${PROJECT_DIR}/${SESSION_ID}`)
+    })
+
+    it('falls back to getProjectsDir() when projectsDirOverride is undefined', async () => {
+      const now = 1_700_000_000_000
+      vi.setSystemTime(now)
+
+      const mtimeMs = now - 30_000
+
+      mockStat
+        .mockResolvedValueOnce(makeStatResult(mtimeMs))
+        .mockResolvedValueOnce(makeStatResult(mtimeMs, true))
+
+      const result = await isSessionActive(PROJECT_DIR, SESSION_ID)
+
+      expect(result).toBe(true)
+      // Should use the default /fake/projects from the mock
+      expect(mockStat).toHaveBeenCalledWith(JSONL_PATH)
+      expect(mockStat).toHaveBeenCalledWith(LOCK_DIR_PATH)
+    })
+  })
+
   describe('path construction', () => {
     it('constructs the correct jsonl path from projectDirName and sessionId', async () => {
       const now = 1_700_000_000_000
