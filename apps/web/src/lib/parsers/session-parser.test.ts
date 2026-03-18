@@ -894,6 +894,96 @@ describe('parseSubagentSkills', () => {
       expect(result.totalTokens.outputTokens).toBe(1000)
     })
 
+    it('should deduplicate progress message tokens by requestId', async () => {
+      const sessionPath = createSessionJSONL([
+        // Agent dispatch
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:00Z',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            content: [
+              {
+                type: 'tool_use',
+                name: 'Task',
+                id: 'task-prog',
+                input: { subagent_type: 'implementer', description: 'Work' },
+              },
+            ],
+          },
+        }),
+        // Two progress messages with SAME requestId — should count only once
+        JSON.stringify({
+          type: 'progress',
+          timestamp: '2026-01-01T10:01:00Z',
+          parentToolUseID: 'task-prog',
+          requestId: 'req-prog-dup',
+          data: {
+            agentId: 'agent-prog-dedup',
+            message: {
+              message: {
+                model: 'claude-sonnet-4-20250514',
+                usage: {
+                  input_tokens: 7000,
+                  output_tokens: 1500,
+                  cache_read_input_tokens: 3000,
+                  cache_creation_input_tokens: 0,
+                },
+              },
+            },
+          },
+        }),
+        JSON.stringify({
+          type: 'progress',
+          timestamp: '2026-01-01T10:01:01Z',
+          parentToolUseID: 'task-prog',
+          requestId: 'req-prog-dup',
+          data: {
+            agentId: 'agent-prog-dedup',
+            message: {
+              message: {
+                model: 'claude-sonnet-4-20250514',
+                usage: {
+                  input_tokens: 7000,
+                  output_tokens: 1500,
+                  cache_read_input_tokens: 3000,
+                  cache_creation_input_tokens: 0,
+                },
+              },
+            },
+          },
+        }),
+        // One progress message with DIFFERENT requestId — should be counted
+        JSON.stringify({
+          type: 'progress',
+          timestamp: '2026-01-01T10:02:00Z',
+          parentToolUseID: 'task-prog',
+          requestId: 'req-prog-unique',
+          data: {
+            agentId: 'agent-prog-dedup',
+            message: {
+              message: {
+                model: 'claude-sonnet-4-20250514',
+                usage: {
+                  input_tokens: 5000,
+                  output_tokens: 1000,
+                  cache_read_input_tokens: 2000,
+                  cache_creation_input_tokens: 0,
+                },
+              },
+            },
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      // Only 2 unique progress requests counted (req-prog-dup once + req-prog-unique)
+      expect(result.totalTokens.inputTokens).toBe(7000 + 5000)
+      expect(result.totalTokens.outputTokens).toBe(1500 + 1000)
+      expect(result.totalTokens.cacheReadInputTokens).toBe(3000 + 2000)
+    })
+
     it('should deduplicate tokensByModel when same requestId appears twice', async () => {
       const sessionPath = createSessionJSONL([
         JSON.stringify({
