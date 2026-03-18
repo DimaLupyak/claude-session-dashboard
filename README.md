@@ -111,6 +111,25 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Updating
+
+**npx** — always fetches the latest published version automatically. No action needed.
+
+**Global install** — check your current version and update:
+
+```bash
+claude-dashboard --version           # see current version
+npm install -g claude-session-dashboard@latest
+```
+
+**From source** — pull the latest changes and rebuild:
+
+```bash
+cd claude-session-dashboard
+git pull
+cd apps/web && npm install && npm run build
+```
+
 ## CLI Options
 
 ```
