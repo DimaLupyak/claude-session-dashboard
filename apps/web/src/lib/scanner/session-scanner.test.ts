@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SessionSummary } from '../parsers/types'
 import type { ProjectInfo } from './project-scanner'
+import type { DataSource } from '../utils/claude-path'
 
 // Mock all external dependencies inline (vi.mock is hoisted)
 vi.mock('./project-scanner', () => ({
   scanProjects: vi.fn(),
+  scanProjectsFrom: vi.fn(),
 }))
 
 vi.mock('../utils/claude-path', () => ({
   getProjectsDir: vi.fn(() => '/mock/projects'),
+  getProjectsDirFor: vi.fn((source: { claudeDir: string }) => `${source.claudeDir}/projects`),
   extractSessionId: vi.fn((filename: string) => filename.replace(/\.jsonl$/, '')),
+  getDataSources: vi.fn(),
 }))
 
 vi.mock('../parsers/session-parser', () => ({
@@ -68,17 +72,22 @@ describe('session-scanner', () => {
   async function importScanner() {
     // Re-import after resetModules to get a fresh summaryCache
     const scanner = await import('./session-scanner')
-    const { scanProjects } = await import('./project-scanner')
+    const { scanProjects, scanProjectsFrom } = await import('./project-scanner')
     const { parseSummary } = await import('../parsers/session-parser')
     const { isSessionActive } = await import('./active-detector')
+    const { getDataSources } = await import('../utils/claude-path')
     const fs = await import('node:fs')
     return {
       scanAllSessions: scanner.scanAllSessions,
       scanAllSessionsWithPaths: scanner.scanAllSessionsWithPaths,
+      scanAllSessionsMultiSource: scanner.scanAllSessionsMultiSource,
+      scanSessionsFromSource: scanner.scanSessionsFromSource,
       getActiveSessions: scanner.getActiveSessions,
       mockScanProjects: scanProjects as ReturnType<typeof vi.fn>,
+      mockScanProjectsFrom: scanProjectsFrom as ReturnType<typeof vi.fn>,
       mockParseSummary: parseSummary as ReturnType<typeof vi.fn>,
       mockIsSessionActive: isSessionActive as ReturnType<typeof vi.fn>,
+      mockGetDataSources: getDataSources as ReturnType<typeof vi.fn>,
       mockStat: fs.promises.stat as ReturnType<typeof vi.fn>,
     }
   }
@@ -483,6 +492,284 @@ describe('session-scanner', () => {
       mockIsSessionActive.mockResolvedValue(false)
 
       const result = await getActiveSessions()
+
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('scanSessionsFromSource', () => {
+    const macSource: DataSource = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/user/.claude',
+      platform: 'macos',
+      available: true,
+    }
+
+    it('returns sessions with sourceId and sourceLabel set from the source', async () => {
+      const {
+        scanSessionsFromSource,
+        mockScanProjectsFrom,
+        mockParseSummary,
+        mockIsSessionActive,
+        mockStat,
+      } = await importScanner()
+
+      const summary = makeSummary()
+      mockScanProjectsFrom.mockResolvedValue([
+        makeProject({ sourceId: 'primary', sourceLabel: 'macOS' }),
+      ])
+      mockStat.mockResolvedValue({ mtimeMs: 1000, size: 1024 })
+      mockParseSummary.mockResolvedValue(summary)
+      mockIsSessionActive.mockResolvedValue(false)
+
+      const result = await scanSessionsFromSource(macSource)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].sourceId).toBe('primary')
+      expect(result[0].sourceLabel).toBe('macOS')
+    })
+
+    it('passes projectsDirOverride to isSessionActive for non-primary sources', async () => {
+      const wslSource: DataSource = {
+        id: 'wsl-ubuntu-user',
+        label: 'WSL - Ubuntu',
+        claudeDir: '\\\\wsl$\\Ubuntu\\home\\user\\.claude',
+        platform: 'wsl',
+        available: true,
+      }
+
+      const {
+        scanSessionsFromSource,
+        mockScanProjectsFrom,
+        mockParseSummary,
+        mockIsSessionActive,
+        mockStat,
+      } = await importScanner()
+
+      const summary = makeSummary()
+      mockScanProjectsFrom.mockResolvedValue([
+        makeProject({ sourceId: 'wsl-ubuntu-user', sourceLabel: 'WSL - Ubuntu' }),
+      ])
+      mockStat.mockResolvedValue({ mtimeMs: 1000, size: 1024 })
+      mockParseSummary.mockResolvedValue(summary)
+      mockIsSessionActive.mockResolvedValue(false)
+
+      await scanSessionsFromSource(wslSource)
+
+      expect(mockIsSessionActive).toHaveBeenCalledWith(
+        '-Users-user-myproject',
+        'session-abc',
+        '\\\\wsl$\\Ubuntu\\home\\user\\.claude/projects',
+      )
+    })
+
+    it('does not pass projectsDirOverride to isSessionActive for primary source', async () => {
+      const {
+        scanSessionsFromSource,
+        mockScanProjectsFrom,
+        mockParseSummary,
+        mockIsSessionActive,
+        mockStat,
+      } = await importScanner()
+
+      const summary = makeSummary()
+      mockScanProjectsFrom.mockResolvedValue([
+        makeProject({ sourceId: 'primary', sourceLabel: 'macOS' }),
+      ])
+      mockStat.mockResolvedValue({ mtimeMs: 1000, size: 1024 })
+      mockParseSummary.mockResolvedValue(summary)
+      mockIsSessionActive.mockResolvedValue(false)
+
+      await scanSessionsFromSource(macSource)
+
+      expect(mockIsSessionActive).toHaveBeenCalledWith(
+        '-Users-user-myproject',
+        'session-abc',
+        undefined,
+      )
+    })
+
+    it('returns [] when source has no projects', async () => {
+      const {
+        scanSessionsFromSource,
+        mockScanProjectsFrom,
+      } = await importScanner()
+
+      mockScanProjectsFrom.mockResolvedValue([])
+
+      const result = await scanSessionsFromSource(macSource)
+
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('scanAllSessionsMultiSource', () => {
+    const macSource: DataSource = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/user/.claude',
+      platform: 'macos',
+      available: true,
+    }
+
+    const wslSource: DataSource = {
+      id: 'wsl-ubuntu-user',
+      label: 'WSL - Ubuntu',
+      claudeDir: '\\\\wsl$\\Ubuntu\\home\\user\\.claude',
+      platform: 'wsl',
+      available: true,
+    }
+
+    it('returns sessions from all available sources with sourceId/sourceLabel set', async () => {
+      const {
+        scanAllSessionsMultiSource,
+        mockGetDataSources,
+        mockScanProjectsFrom,
+        mockParseSummary,
+        mockIsSessionActive,
+        mockStat,
+      } = await importScanner()
+
+      const macSummary = makeSummary({
+        sessionId: 'session-mac',
+        lastActiveAt: '2026-01-01T11:00:00.000Z',
+      })
+      const wslSummary = makeSummary({
+        sessionId: 'session-wsl',
+        lastActiveAt: '2026-01-01T10:00:00.000Z',
+      })
+
+      mockGetDataSources.mockResolvedValue([macSource, wslSource])
+      mockScanProjectsFrom
+        .mockResolvedValueOnce([
+          makeProject({
+            sessionFiles: ['session-mac.jsonl'],
+            sourceId: 'primary',
+            sourceLabel: 'macOS',
+          }),
+        ])
+        .mockResolvedValueOnce([
+          makeProject({
+            sessionFiles: ['session-wsl.jsonl'],
+            sourceId: 'wsl-ubuntu-user',
+            sourceLabel: 'WSL - Ubuntu',
+          }),
+        ])
+      mockStat.mockResolvedValue({ mtimeMs: 1000, size: 1024 })
+      mockParseSummary
+        .mockResolvedValueOnce(macSummary)
+        .mockResolvedValueOnce(wslSummary)
+      mockIsSessionActive.mockResolvedValue(false)
+
+      const result = await scanAllSessionsMultiSource()
+
+      expect(result).toHaveLength(2)
+      // Sorted by lastActiveAt descending
+      expect(result[0].sessionId).toBe('session-mac')
+      expect(result[0].sourceId).toBe('primary')
+      expect(result[0].sourceLabel).toBe('macOS')
+      expect(result[1].sessionId).toBe('session-wsl')
+      expect(result[1].sourceId).toBe('wsl-ubuntu-user')
+      expect(result[1].sourceLabel).toBe('WSL - Ubuntu')
+    })
+
+    it('skips unavailable sources', async () => {
+      const {
+        scanAllSessionsMultiSource,
+        mockGetDataSources,
+        mockScanProjectsFrom,
+        mockParseSummary,
+        mockIsSessionActive,
+        mockStat,
+      } = await importScanner()
+
+      const unavailableSource: DataSource = {
+        ...wslSource,
+        available: false,
+      }
+
+      const macSummary = makeSummary({ sessionId: 'session-mac' })
+      mockGetDataSources.mockResolvedValue([macSource, unavailableSource])
+      mockScanProjectsFrom.mockResolvedValue([
+        makeProject({
+          sessionFiles: ['session-mac.jsonl'],
+          sourceId: 'primary',
+          sourceLabel: 'macOS',
+        }),
+      ])
+      mockStat.mockResolvedValue({ mtimeMs: 1000, size: 1024 })
+      mockParseSummary.mockResolvedValue(macSummary)
+      mockIsSessionActive.mockResolvedValue(false)
+
+      const result = await scanAllSessionsMultiSource()
+
+      expect(result).toHaveLength(1)
+      expect(result[0].sourceId).toBe('primary')
+      // scanProjectsFrom should only be called once (for the available source)
+      expect(mockScanProjectsFrom).toHaveBeenCalledTimes(1)
+    })
+
+    it('deduplicates sessions with the same sessionId across sources', async () => {
+      const {
+        scanAllSessionsMultiSource,
+        mockGetDataSources,
+        mockScanProjectsFrom,
+        mockParseSummary,
+        mockIsSessionActive,
+        mockStat,
+      } = await importScanner()
+
+      const olderDupe = makeSummary({
+        sessionId: 'session-dupe',
+        lastActiveAt: '2026-01-01T09:00:00.000Z',
+      })
+      const newerDupe = makeSummary({
+        sessionId: 'session-dupe',
+        lastActiveAt: '2026-01-01T11:00:00.000Z',
+      })
+
+      mockGetDataSources.mockResolvedValue([macSource, wslSource])
+      mockScanProjectsFrom
+        .mockResolvedValueOnce([
+          makeProject({
+            sessionFiles: ['session-dupe.jsonl'],
+            sourceId: 'primary',
+            sourceLabel: 'macOS',
+          }),
+        ])
+        .mockResolvedValueOnce([
+          makeProject({
+            sessionFiles: ['session-dupe.jsonl'],
+            sourceId: 'wsl-ubuntu-user',
+            sourceLabel: 'WSL - Ubuntu',
+          }),
+        ])
+      mockStat.mockResolvedValue({ mtimeMs: 1000, size: 1024 })
+      mockParseSummary
+        .mockResolvedValueOnce(olderDupe)
+        .mockResolvedValueOnce(newerDupe)
+      mockIsSessionActive.mockResolvedValue(false)
+
+      const result = await scanAllSessionsMultiSource()
+
+      // Should only include the newer version of the duplicated session
+      expect(result).toHaveLength(1)
+      expect(result[0].sessionId).toBe('session-dupe')
+      expect(result[0].lastActiveAt).toBe('2026-01-01T11:00:00.000Z')
+    })
+
+    it('returns [] when no sources are available', async () => {
+      const {
+        scanAllSessionsMultiSource,
+        mockGetDataSources,
+      } = await importScanner()
+
+      mockGetDataSources.mockResolvedValue([
+        { ...macSource, available: false },
+      ])
+
+      const result = await scanAllSessionsMultiSource()
 
       expect(result).toEqual([])
     })
