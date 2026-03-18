@@ -7,7 +7,11 @@ import {
   decodeProjectDirName,
   extractProjectName,
   extractSessionId,
+  getProjectsDirFor,
+  getStatsPathFor,
+  getHistoryPathFor,
 } from './claude-path'
+import type { DataSource } from './claude-path'
 
 // Shared mock functions that persist across vi.resetModules() via vi.hoisted()
 const { mockReadFile, mockAccess } = vi.hoisted(() => ({
@@ -243,6 +247,28 @@ describe('claude-path', () => {
 
       const result = await detectCurrentPlatform()
       expect(result).toBe('linux')
+    })
+  })
+
+  describe('per-source path helpers', () => {
+    const mockSource: DataSource = {
+      id: 'primary',
+      label: 'Linux',
+      claudeDir: '/home/user/.claude',
+      platform: 'linux',
+      available: true,
+    }
+
+    it('getProjectsDirFor returns projects subdir', () => {
+      expect(getProjectsDirFor(mockSource)).toBe('/home/user/.claude/projects')
+    })
+
+    it('getStatsPathFor returns stats-cache.json path', () => {
+      expect(getStatsPathFor(mockSource)).toBe('/home/user/.claude/stats-cache.json')
+    })
+
+    it('getHistoryPathFor returns history.jsonl path', () => {
+      expect(getHistoryPathFor(mockSource)).toBe('/home/user/.claude/history.jsonl')
     })
   })
 

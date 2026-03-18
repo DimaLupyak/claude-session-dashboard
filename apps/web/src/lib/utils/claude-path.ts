@@ -27,6 +27,18 @@ export function getHistoryPath(): string {
   return path.join(CLAUDE_DIR, 'history.jsonl')
 }
 
+export function getProjectsDirFor(source: DataSource): string {
+  return path.join(source.claudeDir, 'projects')
+}
+
+export function getStatsPathFor(source: DataSource): string {
+  return path.join(source.claudeDir, 'stats-cache.json')
+}
+
+export function getHistoryPathFor(source: DataSource): string {
+  return path.join(source.claudeDir, 'history.jsonl')
+}
+
 /**
  * Decode a project directory name back to a filesystem path.
  * ~/.claude/projects stores dirs like "-Users-username-Documents-GitHub-foo"
