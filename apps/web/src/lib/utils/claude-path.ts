@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { promises as fs } from 'node:fs'
+import * as fs from 'node:fs/promises'
 
 function resolveClaudeDir(): string {
   if (process.env.CLAUDE_HOME) {
@@ -61,20 +61,24 @@ export interface DataSource {
   available: boolean
 }
 
-function detectCurrentPlatform(): 'windows' | 'macos' | 'linux' {
-  switch (process.platform) {
-    case 'win32':
-      return 'windows'
-    case 'darwin':
-      return 'macos'
-    default:
-      return 'linux'
+export async function detectCurrentPlatform(): Promise<'windows' | 'wsl' | 'macos' | 'linux'> {
+  if (process.platform === 'win32') return 'windows'
+  if (process.platform === 'darwin') return 'macos'
+  // Check for WSL — on WSL, process.platform is 'linux' but /proc/version contains 'microsoft' or 'WSL'
+  try {
+    const procVersion = await fs.readFile('/proc/version', 'utf8')
+    if (procVersion.toLowerCase().includes('microsoft') || procVersion.toLowerCase().includes('wsl')) {
+      return 'wsl'
+    }
+  } catch {
+    // /proc/version doesn't exist or isn't readable — not WSL
   }
+  return 'linux'
 }
 
 export async function getDataSources(): Promise<DataSource[]> {
   const claudeDir = getClaudeDir()
-  const platform = detectCurrentPlatform()
+  const platform = await detectCurrentPlatform()
 
   let available = false
   try {
@@ -86,7 +90,7 @@ export async function getDataSources(): Promise<DataSource[]> {
 
   const primarySource: DataSource = {
     id: platform,
-    label: platform === 'windows' ? 'Windows' : platform === 'macos' ? 'macOS' : 'Linux',
+    label: platform === 'windows' ? 'Windows' : platform === 'macos' ? 'macOS' : platform === 'wsl' ? 'WSL' : 'Linux',
     claudeDir,
     platform,
     available,

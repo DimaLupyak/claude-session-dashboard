@@ -9,6 +9,27 @@ import {
   extractSessionId,
 } from './claude-path'
 
+// Shared mock functions that persist across vi.resetModules() via vi.hoisted()
+const { mockReadFile, mockAccess } = vi.hoisted(() => ({
+  mockReadFile: vi.fn(),
+  mockAccess: vi.fn(),
+}))
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  mockReadFile.mockImplementation((...args: Parameters<typeof actual.readFile>) =>
+    actual.readFile(...args)
+  )
+  mockAccess.mockImplementation((...args: Parameters<typeof actual.access>) =>
+    actual.access(...args)
+  )
+  return {
+    ...actual,
+    readFile: mockReadFile,
+    access: mockAccess,
+  }
+})
+
 describe('claude-path', () => {
   describe('getClaudeDir', () => {
     afterEach(() => {
@@ -173,9 +194,66 @@ describe('claude-path', () => {
     })
   })
 
+  describe('detectCurrentPlatform', () => {
+    afterEach(() => {
+      mockReadFile.mockReset()
+      vi.resetModules()
+    })
+
+    it('returns a valid platform value', async () => {
+      vi.resetModules()
+      const { detectCurrentPlatform } = await import('./claude-path')
+      const result = await detectCurrentPlatform()
+      expect(['windows', 'wsl', 'macos', 'linux']).toContain(result)
+    })
+
+    it('detects WSL when /proc/version contains microsoft', async () => {
+      const originalPlatform = process.platform
+      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+
+      vi.resetModules()
+      const { detectCurrentPlatform } = await import('./claude-path')
+
+      // Set mock AFTER import so the factory has already run
+      mockReadFile.mockImplementation((filePath: string) => {
+        if (filePath === '/proc/version') {
+          return Promise.resolve('Linux version 5.15.0-microsoft-standard-WSL2 (gcc)')
+        }
+        return Promise.reject(new Error('ENOENT'))
+      })
+
+      const result = await detectCurrentPlatform()
+      expect(result).toBe('wsl')
+
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+    })
+
+    it('returns linux when /proc/version does not contain microsoft', async () => {
+      const originalPlatform = process.platform
+      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+
+      vi.resetModules()
+      const { detectCurrentPlatform } = await import('./claude-path')
+
+      mockReadFile.mockImplementation((filePath: string) => {
+        if (filePath === '/proc/version') {
+          return Promise.resolve('Linux version 6.1.0-generic (gcc)')
+        }
+        return Promise.reject(new Error('ENOENT'))
+      })
+
+      const result = await detectCurrentPlatform()
+      expect(result).toBe('linux')
+
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+    })
+  })
+
   describe('getDataSources', () => {
     afterEach(() => {
       vi.unstubAllEnvs()
+      mockReadFile.mockReset()
+      mockAccess.mockReset()
       vi.resetModules()
     })
 
