@@ -14,9 +14,10 @@ import {
 import type { DataSource } from './claude-path'
 
 // Shared mock functions that persist across vi.resetModules() via vi.hoisted()
-const { mockReadFile, mockAccess } = vi.hoisted(() => ({
+const { mockReadFile, mockAccess, mockReaddir } = vi.hoisted(() => ({
   mockReadFile: vi.fn(),
   mockAccess: vi.fn(),
+  mockReaddir: vi.fn(),
 }))
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -27,10 +28,14 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   mockAccess.mockImplementation((...args: Parameters<typeof actual.access>) =>
     actual.access(...args)
   )
+  mockReaddir.mockImplementation((...args: Parameters<typeof actual.readdir>) =>
+    actual.readdir(...args)
+  )
   return {
     ...actual,
     readFile: mockReadFile,
     access: mockAccess,
+    readdir: mockReaddir,
   }
 })
 
@@ -144,6 +149,22 @@ describe('claude-path', () => {
       expect(decodeProjectDirName('-home-user-work-clients-acme-frontend')).toBe(
         '/home/user/work/clients/acme/frontend'
       )
+    })
+
+    it('decodes Windows C: drive letter paths', () => {
+      expect(decodeProjectDirName('-C-Users-user-project')).toBe('C:/Users/user/project')
+    })
+
+    it('decodes Windows D: drive letter paths', () => {
+      expect(decodeProjectDirName('-D-Projects-myapp')).toBe('D:/Projects/myapp')
+    })
+
+    it('does not treat lowercase single-letter top-level dirs as Windows drives', () => {
+      expect(decodeProjectDirName('-a-b-c')).toBe('/a/b/c')
+    })
+
+    it('does not treat multi-letter top-level dirs as Windows drives', () => {
+      expect(decodeProjectDirName('-home-user-code')).toBe('/home/user/code')
     })
   })
 
@@ -269,6 +290,117 @@ describe('claude-path', () => {
 
     it('getHistoryPathFor returns history.jsonl path', () => {
       expect(getHistoryPathFor(mockSource)).toBe('/home/user/.claude/history.jsonl')
+    })
+  })
+
+  describe('detectWslDistros', () => {
+    const originalPlatform = process.platform
+
+    afterEach(() => {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true, writable: true })
+      mockReaddir.mockReset()
+      mockAccess.mockReset()
+      vi.resetModules()
+    })
+
+    it('returns empty array on non-windows platforms', async () => {
+      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true, writable: true })
+      vi.resetModules()
+      const { detectWslDistros } = await import('./claude-path')
+      const result = await detectWslDistros()
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array on macOS', async () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true, writable: true })
+      vi.resetModules()
+      const { detectWslDistros } = await import('./claude-path')
+      const result = await detectWslDistros()
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array when wsl$ is not accessible', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true, writable: true })
+      vi.resetModules()
+      const { detectWslDistros } = await import('./claude-path')
+
+      mockReaddir.mockImplementation((dirPath: string) => {
+        if (dirPath === '\\\\wsl$') {
+          return Promise.reject(new Error('ENOENT'))
+        }
+        return Promise.reject(new Error('ENOENT'))
+      })
+
+      const result = await detectWslDistros()
+      expect(result).toEqual([])
+    })
+
+    it('discovers WSL distro users with .claude directories', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true, writable: true })
+      vi.resetModules()
+      const { detectWslDistros } = await import('./claude-path')
+
+      mockReaddir.mockImplementation((dirPath: string) => {
+        if (dirPath === '\\\\wsl$') {
+          return Promise.resolve(['Ubuntu', 'Debian'])
+        }
+        if (dirPath === '\\\\wsl$\\Ubuntu\\home') {
+          return Promise.resolve(['alice', 'bob'])
+        }
+        if (dirPath === '\\\\wsl$\\Debian\\home') {
+          return Promise.resolve(['charlie'])
+        }
+        return Promise.reject(new Error('ENOENT'))
+      })
+
+      mockAccess.mockImplementation((filePath: string) => {
+        // alice has .claude, bob does not, charlie has .claude
+        if (filePath === '\\\\wsl$\\Ubuntu\\home\\alice\\.claude') {
+          return Promise.resolve()
+        }
+        if (filePath === '\\\\wsl$\\Debian\\home\\charlie\\.claude') {
+          return Promise.resolve()
+        }
+        return Promise.reject(new Error('ENOENT'))
+      })
+
+      const result = await detectWslDistros()
+      expect(result).toHaveLength(2)
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'wsl-ubuntu-alice',
+            label: 'WSL - Ubuntu',
+            claudeDir: '\\\\wsl$\\Ubuntu\\home\\alice\\.claude',
+            platform: 'wsl',
+            available: true,
+          }),
+          expect.objectContaining({
+            id: 'wsl-debian-charlie',
+            label: 'WSL - Debian',
+            claudeDir: '\\\\wsl$\\Debian\\home\\charlie\\.claude',
+            platform: 'wsl',
+            available: true,
+          }),
+        ])
+      )
+    })
+
+    it('skips distros where /home is not accessible', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true, writable: true })
+      vi.resetModules()
+      const { detectWslDistros } = await import('./claude-path')
+
+      mockReaddir.mockImplementation((dirPath: string) => {
+        if (dirPath === '\\\\wsl$') {
+          return Promise.resolve(['Ubuntu'])
+        }
+        // /home not accessible
+        return Promise.reject(new Error('ENOENT'))
+      })
+
+      const result = await detectWslDistros()
+      expect(result).toEqual([])
     })
   })
 

@@ -46,7 +46,13 @@ export function getHistoryPathFor(source: DataSource): string {
  */
 export function decodeProjectDirName(dirName: string): string {
   // Replace leading dash with / and all other dashes with /
-  return dirName.replace(/^-/, '/').replace(/-/g, '/')
+  const decoded = dirName.replace(/^-/, '/').replace(/-/g, '/')
+  // Detect Windows drive letter: /C/Users/... → C:/Users/...
+  const windowsDrive = decoded.match(/^\/([A-Z])\/(.*)$/)
+  if (windowsDrive) {
+    return `${windowsDrive[1]}:/${windowsDrive[2]}`
+  }
+  return decoded
 }
 
 /**
@@ -88,6 +94,45 @@ export async function detectCurrentPlatform(): Promise<'windows' | 'wsl' | 'maco
   return 'linux'
 }
 
+export async function detectWslDistros(): Promise<DataSource[]> {
+  if (process.platform !== 'win32') return []
+
+  const wslRoot = '\\\\wsl$'
+  let distros: string[]
+  try {
+    distros = await fs.readdir(wslRoot)
+  } catch {
+    return [] // WSL not installed or not running
+  }
+
+  const sources: DataSource[] = []
+  for (const distro of distros) {
+    const homeDir = `${wslRoot}\\${distro}\\home`
+    let users: string[]
+    try {
+      users = await fs.readdir(homeDir)
+    } catch {
+      continue
+    }
+    for (const user of users) {
+      const claudeDir = `${wslRoot}\\${distro}\\home\\${user}\\.claude`
+      try {
+        await fs.access(claudeDir)
+        sources.push({
+          id: `wsl-${distro.toLowerCase()}-${user}`,
+          label: `WSL - ${distro}`,
+          claudeDir,
+          platform: 'wsl',
+          available: true,
+        })
+      } catch {
+        // .claude doesn't exist for this user
+      }
+    }
+  }
+  return sources
+}
+
 export async function getDataSources(): Promise<DataSource[]> {
   const claudeDir = getClaudeDir()
   const platform = await detectCurrentPlatform()
@@ -108,5 +153,8 @@ export async function getDataSources(): Promise<DataSource[]> {
     available,
   }
 
-  return [primarySource]
+  const sources = [primarySource]
+  const wslSources = await detectWslDistros()
+  sources.push(...wslSources)
+  return sources
 }
