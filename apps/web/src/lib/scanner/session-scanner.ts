@@ -121,6 +121,7 @@ export async function scanSessionsFromSource(source: DataSource): Promise<Sessio
           isActive: active,
           sourceId: source.id,
           sourceLabel: source.label,
+          sourcePlatform: source.platform,
         })
         continue
       }
@@ -138,6 +139,7 @@ export async function scanSessionsFromSource(source: DataSource): Promise<Sessio
         summary.isActive = active
         summary.sourceId = source.id
         summary.sourceLabel = source.label
+        summary.sourcePlatform = source.platform
 
         summaryCache.set(`${source.id}:${sessionId}`, {
           mtimeMs: stat.mtimeMs,

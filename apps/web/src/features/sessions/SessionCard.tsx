@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { SessionSummary } from '@/lib/parsers/types'
 import { formatDuration, formatRelativeTime, formatBytes } from '@/lib/utils/format'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
+import { SourceBadge } from '@/components/ui/SourceBadge'
 import { StatusBadge } from './StatusBadge'
 import { RunningTimer } from './RunningTimer'
 
@@ -29,6 +30,9 @@ export function SessionCard({ session }: { session: SessionSummary }) {
               {displayName}
             </h3>
             <StatusBadge isActive={session.isActive} />
+            {session.sourceLabel && (
+              <SourceBadge sourceLabel={session.sourceLabel} platform={session.sourcePlatform} />
+            )}
           </div>
 
           {displayBranch && (
