@@ -1,11 +1,8 @@
 ---
 name: fix-ci
 description: Investigate and fix the latest failing CI workflow
-user_invocable: true
-arguments:
-  - name: run-id
-    description: "Specific workflow run ID (optional — defaults to latest)"
-    required: false
+user-invocable: true
+argument-hint: "[run-id]"
 ---
 
 # Fix CI Workflow
@@ -41,6 +38,8 @@ Read the logs and classify the failure:
 | **dependency** | `npm ci`, `ERESOLVE`, `peer dep` |
 
 Extract the exact error message, file path, and line number.
+
+Use superpowers:systematic-debugging to find root cause before attempting any fix.
 
 ### 3. Reproduce Locally
 

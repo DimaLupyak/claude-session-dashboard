@@ -1,7 +1,7 @@
 ---
 name: dashboard
 description: Open the Claude Session Dashboard in the browser. Starts it first if not already running.
-user_invocable: true
+user-invocable: true
 ---
 
 # Open Dashboard

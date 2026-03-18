@@ -1,7 +1,7 @@
 ---
 name: review
 description: Code review current changes against project standards
-user_invocable: true
+user-invocable: true
 ---
 
 # Code Review
@@ -38,8 +38,8 @@ For each changed file, check:
 
 **Security**
 - No secrets in code
-- RLS considered for new DB tables
-- External agent responses validated
+- No path traversal in filesystem reads (all reads scoped to `~/.claude`)
+- Server function return values validated with Zod
 
 ### 3. Report
 

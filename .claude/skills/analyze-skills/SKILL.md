@@ -1,11 +1,8 @@
 ---
 name: analyze-skills
 description: Analyze ~/.claude session files to find unused agent skills and reduce context token waste. Scans subagent JSONL files for injected skills and cross-references with agent responses.
-user_invocable: true
-arguments:
-  - name: project
-    description: "Project path filter (e.g., 'dashboard'). If omitted, analyzes current project."
-    required: false
+user-invocable: true
+argument-hint: "[project-filter]"
 ---
 
 # Analyze Agent Skill Usage
@@ -51,8 +48,6 @@ For each injected skill, search the agent's **assistant** messages for distincti
 | Skill | Keywords to search for |
 |---|---|
 | `uiux` | gray-950, terracotta, design system, bg-gray, border-gray |
-| `database-rules` | migration, RLS, policy, supabase/migrations, ALTER TABLE, CREATE TABLE |
-| `supabase` | supabase client, createClient, supabase.auth, supabase.from, RPC |
 | `tanstack-start` | createServerFn, server function, TanStack Start, SSR |
 | `typescript-rules` | strict typing, Zod, z.object, z.infer, unknown, type guard |
 | `react-rules` | useQuery, useSuspenseQuery, queryOptions, named export, TanStack Query |
@@ -69,7 +64,6 @@ Aggregate results into a table:
 ```
 Agent Type | Skill | Injected | Used | Usage % | Recommendation
 -----------|-------|----------|------|---------|---------------
-architect  | supabase | 15 | 0 | 0% | REMOVE
 architect  | tanstack-start | 15 | 8 | 53% | KEEP
 ...
 ```
@@ -97,10 +91,9 @@ List the exact frontmatter changes needed for each agent file. Example:
 # .claude/agents/implementer.md — BEFORE
 skills:
   - tanstack-start
-  - supabase          # REMOVE (0% usage, ~2.1K tokens wasted per invocation)
   - typescript-rules
   - react-rules
-  - database-rules    # REMOVE (8% usage, ~1.8K tokens wasted per invocation)
+  - uiux              # REMOVE (3% usage, ~1.5K tokens wasted per invocation)
 
 # .claude/agents/implementer.md — AFTER
 skills:

@@ -1,7 +1,7 @@
 ---
 name: quality-check
 description: Run typecheck, lint, test, and build quality gates
-user_invocable: true
+user-invocable: true
 ---
 
 # Quality Check

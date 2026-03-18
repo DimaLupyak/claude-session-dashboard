@@ -10,6 +10,8 @@ skills:
   - typescript-rules
   - react-rules
   - playwright-cli
+  - superpowers:test-driven-development
+  - superpowers:verification-before-completion
 ---
 
 You are a Quality Engineer for a full stack application.

@@ -1,11 +1,8 @@
 ---
 name: investigate
 description: Investigate a URL or page using Playwright browser
-user_invocable: true
-arguments:
-  - name: url
-    description: "URL or path to investigate (e.g., /agents, https://example.com)"
-    required: true
+user-invocable: true
+argument-hint: "<url>"
 ---
 
 # Browser Investigation
