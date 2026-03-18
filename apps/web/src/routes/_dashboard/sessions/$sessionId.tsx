@@ -14,6 +14,7 @@ import { useIsSessionActive } from '@/features/sessions/useIsSessionActive'
 import { formatDuration, formatDateTime } from '@/lib/utils/format'
 import { sessionToJSON, downloadFile } from '@/lib/utils/export-utils'
 import { ExportDropdown } from '@/components/ExportDropdown'
+import { SessionIdDisplay } from '@/features/session-detail/SessionIdDisplay'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
 import { z } from 'zod'
 
@@ -123,9 +124,7 @@ function SessionDetailPage() {
               },
             ]}
           />
-          <span className="font-mono text-xs text-gray-600">
-            {sessionId.slice(0, 8)}
-          </span>
+          <SessionIdDisplay sessionId={sessionId} />
         </div>
       </div>
 

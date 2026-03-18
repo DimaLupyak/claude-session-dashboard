@@ -60,6 +60,9 @@ export function SessionCard({ session }: { session: SessionSummary }) {
         <span title="File size" className="text-gray-500">
           {formatBytes(session.fileSizeBytes)}
         </span>
+        <span title="Session ID" className="font-mono text-gray-500">
+          {session.sessionId.slice(0, 8)}
+        </span>
       </div>
 
       {displayCwd && (
