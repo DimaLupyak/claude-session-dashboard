@@ -293,6 +293,133 @@ function updateHourCounts(hourCounts: Record<string, number>, session: SessionSu
 }
 
 /**
+ * Merge multiple StatsCache objects (one per data source) into a single combined StatsCache.
+ * Returns null if the input array is empty. Returns the single cache if only one is provided.
+ */
+export function mergeStatsCaches(caches: StatsCache[]): StatsCache | null {
+  if (caches.length === 0) return null
+  if (caches.length === 1) return caches[0]
+
+  // Sum dailyActivity by date
+  const activityMap = new Map<string, { messageCount: number; sessionCount: number; toolCallCount: number }>()
+  for (const cache of caches) {
+    for (const entry of cache.dailyActivity) {
+      const cur = activityMap.get(entry.date) ?? { messageCount: 0, sessionCount: 0, toolCallCount: 0 }
+      cur.messageCount += entry.messageCount
+      cur.sessionCount += entry.sessionCount
+      cur.toolCallCount += entry.toolCallCount
+      activityMap.set(entry.date, cur)
+    }
+  }
+  const dailyActivity = Array.from(activityMap.entries())
+    .map(([date, v]) => ({ date, ...v }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+
+  // Sum dailyModelTokens by date+model
+  const modelTokensMap = new Map<string, Record<string, number>>()
+  for (const cache of caches) {
+    for (const entry of cache.dailyModelTokens) {
+      const cur = modelTokensMap.get(entry.date) ?? {}
+      for (const [model, tokens] of Object.entries(entry.tokensByModel)) {
+        cur[model] = (cur[model] ?? 0) + tokens
+      }
+      modelTokensMap.set(entry.date, cur)
+    }
+  }
+  const dailyModelTokens = Array.from(modelTokensMap.entries())
+    .map(([date, tokensByModel]) => ({ date, tokensByModel }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+
+  // Sum modelUsage by model (including optional fields)
+  const modelUsage: Record<string, {
+    inputTokens: number; outputTokens: number
+    cacheReadInputTokens: number; cacheCreationInputTokens: number
+    webSearchRequests?: number; costUSD?: number
+  }> = {}
+  for (const cache of caches) {
+    for (const [model, usage] of Object.entries(cache.modelUsage)) {
+      const existing = modelUsage[model] ?? {
+        inputTokens: 0, outputTokens: 0,
+        cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+      }
+      existing.inputTokens += usage.inputTokens
+      existing.outputTokens += usage.outputTokens
+      existing.cacheReadInputTokens += usage.cacheReadInputTokens
+      existing.cacheCreationInputTokens += usage.cacheCreationInputTokens
+      if (usage.webSearchRequests !== undefined) {
+        existing.webSearchRequests = (existing.webSearchRequests ?? 0) + usage.webSearchRequests
+      }
+      if (usage.costUSD !== undefined) {
+        existing.costUSD = (existing.costUSD ?? 0) + usage.costUSD
+      }
+      modelUsage[model] = existing
+    }
+  }
+
+  // Sum hourCounts
+  const hourCounts: Record<string, number> = {}
+  for (const cache of caches) {
+    for (const [hour, count] of Object.entries(cache.hourCounts)) {
+      hourCounts[hour] = (hourCounts[hour] ?? 0) + count
+    }
+  }
+
+  // Sum totals
+  let totalSessions = 0
+  let totalMessages = 0
+  for (const cache of caches) {
+    totalSessions += cache.totalSessions
+    totalMessages += cache.totalMessages
+  }
+
+  // Earliest firstSessionDate
+  let firstSessionDate = caches[0].firstSessionDate
+  for (const cache of caches) {
+    if (cache.firstSessionDate < firstSessionDate) {
+      firstSessionDate = cache.firstSessionDate
+    }
+  }
+
+  // Longest session by duration
+  let longestSession = caches[0].longestSession
+  for (const cache of caches) {
+    if (cache.longestSession.duration > longestSession.duration) {
+      longestSession = cache.longestSession
+    }
+  }
+
+  // Latest lastComputedDate
+  let lastComputedDate = caches[0].lastComputedDate
+  for (const cache of caches) {
+    if (cache.lastComputedDate > lastComputedDate) {
+      lastComputedDate = cache.lastComputedDate
+    }
+  }
+
+  // Sum totalSpeculationTimeSavedMs (optional)
+  let totalSpeculationTimeSavedMs: number | undefined
+  for (const cache of caches) {
+    if (cache.totalSpeculationTimeSavedMs !== undefined) {
+      totalSpeculationTimeSavedMs = (totalSpeculationTimeSavedMs ?? 0) + cache.totalSpeculationTimeSavedMs
+    }
+  }
+
+  return {
+    version: caches[0].version,
+    lastComputedDate,
+    dailyActivity,
+    dailyModelTokens,
+    modelUsage,
+    totalSessions,
+    totalMessages,
+    longestSession,
+    firstSessionDate,
+    hourCounts,
+    ...(totalSpeculationTimeSavedMs !== undefined ? { totalSpeculationTimeSavedMs } : {}),
+  }
+}
+
+/**
  * Compute stats from scratch by scanning all sessions and parsing full details.
  * Used as a fallback when ~/.claude/stats-cache.json does not exist.
  */
