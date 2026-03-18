@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Use proactively when user asks to implement, build, add, create, or fix code. Writes production TypeScript/React code using TanStack Start. Implements slice-by-slice and runs typecheck after each change.
+description: Use proactively when user asks to implement, build, add, create, or fix code. Writes production TypeScript/React code using TanStack Start. Implements slice-by-slice and runs typecheck and lint after each change.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
 maxTurns: 50

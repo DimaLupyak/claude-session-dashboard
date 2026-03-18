@@ -15,7 +15,7 @@
 
 ## Project Quality Gates
 
-- Only `npm run typecheck` and `npm run build` are available (no lint script configured).
+- Both `npm run typecheck` and `npm run lint` are available and should be run after each slice.
 - Run from `apps/web/` directory.
 
 ## Key Patterns
