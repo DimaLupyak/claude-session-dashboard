@@ -17,8 +17,6 @@ A read-only, local observability dashboard for [Claude Code](https://docs.anthro
 npx claude-session-dashboard
 ```
 
-![Sessions Page](screenshots/sessions-page.png)
-
 ## Why?
 
 Claude Code stores all session data locally in `~/.claude/projects/`, but there is no built-in way to browse, search, or analyze past sessions. As you accumulate hundreds of sessions across dozens of projects, questions start piling up:
