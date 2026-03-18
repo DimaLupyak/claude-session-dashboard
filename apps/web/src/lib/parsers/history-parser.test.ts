@@ -3,10 +3,15 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { HistoryEntry } from './types'
+import type { DataSource } from '../utils/claude-path'
 
 // vi.mock is hoisted — define the mock inline, then grab the spy reference after import
 vi.mock('../utils/claude-path', () => ({
   getHistoryPath: vi.fn(),
+  getHistoryPathFor: vi.fn((source: DataSource) =>
+    path.join(source.claudeDir, 'history.jsonl'),
+  ),
+  getDataSources: vi.fn(),
   getClaudeDir: vi.fn(),
   getProjectsDir: vi.fn(),
   getStatsPath: vi.fn(),
@@ -15,8 +20,8 @@ vi.mock('../utils/claude-path', () => ({
   extractSessionId: vi.fn(),
 }))
 
-import { getHistoryPath } from '../utils/claude-path'
-import { parseHistory } from './history-parser'
+import { getHistoryPath, getDataSources } from '../utils/claude-path'
+import { parseHistory, parseHistoryFrom, parseHistoryMultiSource } from './history-parser'
 
 describe('parseHistory', () => {
   let tempDir: string
@@ -282,5 +287,198 @@ describe('parseHistory', () => {
         expect(result[i].timestamp).toBeGreaterThanOrEqual(result[i + 1].timestamp)
       }
     })
+  })
+})
+
+describe('parseHistoryFrom', () => {
+  let tempDir: string
+
+  function makeSource(dir: string, id = 'test-source'): DataSource {
+    return {
+      id,
+      label: 'Test Source',
+      claudeDir: dir,
+      platform: 'macos',
+      available: true,
+    }
+  }
+
+  function writeHistoryFileAt(dir: string, entries: HistoryEntry[]): void {
+    const lines = entries.map((e) => JSON.stringify(e))
+    fs.writeFileSync(path.join(dir, 'history.jsonl'), lines.join('\n'), 'utf-8')
+  }
+
+  function makeEntry(overrides: Partial<HistoryEntry> = {}): HistoryEntry {
+    return {
+      display: 'Default display text',
+      timestamp: 1000000,
+      project: '/home/user/project',
+      sessionId: 'session-abc-123',
+      ...overrides,
+    }
+  }
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'history-from-test-'))
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    try {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true })
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
+  })
+
+  it('reads history from the given source claudeDir', async () => {
+    const entries: HistoryEntry[] = [
+      makeEntry({ display: 'fix bug', timestamp: 1000, sessionId: 'sess-1' }),
+      makeEntry({ display: 'add feature', timestamp: 2000, sessionId: 'sess-2' }),
+    ]
+    writeHistoryFileAt(tempDir, entries)
+    const source = makeSource(tempDir)
+
+    const result = await parseHistoryFrom(source)
+
+    expect(result).toHaveLength(2)
+    // Sorted descending by timestamp
+    expect(result[0].sessionId).toBe('sess-2')
+    expect(result[0].display).toBe('add feature')
+    expect(result[1].sessionId).toBe('sess-1')
+  })
+
+  it('returns empty array when source history file does not exist', async () => {
+    // tempDir exists but has no history.jsonl
+    const source = makeSource(tempDir)
+
+    const result = await parseHistoryFrom(source)
+
+    expect(result).toEqual([])
+  })
+
+  it('accepts an optional limit parameter', async () => {
+    const entries: HistoryEntry[] = [
+      makeEntry({ display: 'a', timestamp: 1000, sessionId: 's1' }),
+      makeEntry({ display: 'b', timestamp: 2000, sessionId: 's2' }),
+      makeEntry({ display: 'c', timestamp: 3000, sessionId: 's3' }),
+    ]
+    writeHistoryFileAt(tempDir, entries)
+    const source = makeSource(tempDir)
+
+    const result = await parseHistoryFrom(source, 2)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].timestamp).toBe(3000)
+    expect(result[1].timestamp).toBe(2000)
+  })
+})
+
+describe('parseHistoryMultiSource', () => {
+  const tempDirs: string[] = []
+
+  function makeTempSource(entries: HistoryEntry[], id: string): DataSource {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `history-multi-${id}-`))
+    tempDirs.push(dir)
+    const lines = entries.map((e) => JSON.stringify(e))
+    fs.writeFileSync(path.join(dir, 'history.jsonl'), lines.join('\n'), 'utf-8')
+    return {
+      id,
+      label: `Source ${id}`,
+      claudeDir: dir,
+      platform: 'macos',
+      available: true,
+    }
+  }
+
+  function makeEntry(overrides: Partial<HistoryEntry> = {}): HistoryEntry {
+    return {
+      display: 'Default display text',
+      timestamp: 1000000,
+      project: '/home/user/project',
+      sessionId: 'session-abc-123',
+      ...overrides,
+    }
+  }
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    for (const dir of tempDirs) {
+      try {
+        if (fs.existsSync(dir)) {
+          fs.rmSync(dir, { recursive: true })
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+    tempDirs.length = 0
+  })
+
+  it('merges history from multiple sources', async () => {
+    const src1 = makeTempSource(
+      [makeEntry({ display: 'from s1', timestamp: 1000, sessionId: 'a' })],
+      'source-1',
+    )
+    const src2 = makeTempSource(
+      [makeEntry({ display: 'from s2', timestamp: 2000, sessionId: 'b' })],
+      'source-2',
+    )
+
+    vi.mocked(getDataSources).mockResolvedValue([src1, src2])
+
+    const result = await parseHistoryMultiSource()
+
+    expect(result).toHaveLength(2)
+    // Sorted descending by timestamp
+    expect(result[0].display).toBe('from s2')
+    expect(result[1].display).toBe('from s1')
+  })
+
+  it('deduplicates entries by sessionId+timestamp', async () => {
+    const sharedEntry = makeEntry({
+      display: 'shared',
+      timestamp: 1000,
+      sessionId: 'dup-sess',
+    })
+    const uniqueEntry = makeEntry({
+      display: 'unique',
+      timestamp: 2000,
+      sessionId: 'unique-sess',
+    })
+
+    const src1 = makeTempSource([sharedEntry, uniqueEntry], 'source-1')
+    const src2 = makeTempSource([sharedEntry], 'source-2')
+
+    vi.mocked(getDataSources).mockResolvedValue([src1, src2])
+
+    const result = await parseHistoryMultiSource()
+
+    // Should have 2 entries, not 3 (duplicate removed)
+    expect(result).toHaveLength(2)
+    expect(result.map((e) => e.sessionId).sort()).toEqual(['dup-sess', 'unique-sess'])
+  })
+
+  it('skips unavailable sources', async () => {
+    const availableSource = makeTempSource(
+      [makeEntry({ display: 'exists', timestamp: 1000, sessionId: 's1' })],
+      'available',
+    )
+    const unavailableSource: DataSource = {
+      id: 'unavail',
+      label: 'Unavailable',
+      claudeDir: '/nonexistent/path/that/does/not/exist',
+      platform: 'linux',
+      available: false,
+    }
+
+    vi.mocked(getDataSources).mockResolvedValue([availableSource, unavailableSource])
+
+    const result = await parseHistoryMultiSource()
+
+    expect(result).toHaveLength(1)
+    expect(result[0].display).toBe('exists')
   })
 })
