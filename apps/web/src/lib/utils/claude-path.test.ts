@@ -195,7 +195,10 @@ describe('claude-path', () => {
   })
 
   describe('detectCurrentPlatform', () => {
+    const originalPlatform = process.platform
+
     afterEach(() => {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true, writable: true })
       mockReadFile.mockReset()
       vi.resetModules()
     })
@@ -208,7 +211,6 @@ describe('claude-path', () => {
     })
 
     it('detects WSL when /proc/version contains microsoft', async () => {
-      const originalPlatform = process.platform
       Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
 
       vi.resetModules()
@@ -224,12 +226,9 @@ describe('claude-path', () => {
 
       const result = await detectCurrentPlatform()
       expect(result).toBe('wsl')
-
-      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
     })
 
     it('returns linux when /proc/version does not contain microsoft', async () => {
-      const originalPlatform = process.platform
       Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
 
       vi.resetModules()
@@ -244,8 +243,6 @@ describe('claude-path', () => {
 
       const result = await detectCurrentPlatform()
       expect(result).toBe('linux')
-
-      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
     })
   })
 

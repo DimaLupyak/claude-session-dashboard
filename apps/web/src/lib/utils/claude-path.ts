@@ -89,7 +89,7 @@ export async function getDataSources(): Promise<DataSource[]> {
   }
 
   const primarySource: DataSource = {
-    id: platform,
+    id: 'primary',
     label: platform === 'windows' ? 'Windows' : platform === 'macos' ? 'macOS' : platform === 'wsl' ? 'WSL' : 'Linux',
     claudeDir,
     platform,
