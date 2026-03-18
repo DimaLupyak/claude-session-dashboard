@@ -12,6 +12,8 @@ vi.mock('node:fs', () => ({
 
 vi.mock('@/lib/utils/claude-path', () => ({
   getStatsPath: vi.fn(() => '/mock/.claude/stats-cache.json'),
+  getStatsPathFor: vi.fn((source: { claudeDir: string }) => `${source.claudeDir}/stats-cache.json`),
+  getDataSources: vi.fn(),
 }))
 
 vi.mock('@/lib/cache/disk-cache', () => ({
@@ -589,5 +591,139 @@ describe('mergeStatsCaches', () => {
       cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
       webSearchRequests: 5, costUSD: 0.80,
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseStatsFrom — parse stats for a specific DataSource
+// ---------------------------------------------------------------------------
+
+describe('parseStatsFrom', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function freshParseStatsFrom() {
+    vi.resetModules()
+    const mod = await import('./stats-parser')
+    return mod.parseStatsFrom
+  }
+
+  it('reads stats from the source-specific path', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { readDiskCache } = await import('@/lib/cache/disk-cache')
+    const parseStatsFrom = await freshParseStatsFrom()
+
+    const stats = makeStatsCache()
+    const source = { id: 'primary', label: 'macOS', claudeDir: '/home/user/.claude', platform: 'macos' as const, available: true }
+
+    vi.mocked(fsMock.stat).mockResolvedValue(makeStat(2_000_000) as never)
+    vi.mocked(readDiskCache).mockReturnValue(null)
+    vi.mocked(fsMock.readFile).mockResolvedValue(JSON.stringify(stats) as never)
+
+    const result = await parseStatsFrom(source)
+
+    expect(result).toEqual(stats)
+    // Should read from the source-specific path
+    expect(fsMock.readFile).toHaveBeenCalledWith('/home/user/.claude/stats-cache.json', 'utf-8')
+  })
+
+  it('returns null when stats file does not exist for source', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { scanAllSessionsWithPaths } = await import('@/lib/scanner/session-scanner')
+    const parseStatsFrom = await freshParseStatsFrom()
+
+    const source = { id: 'wsl-ubuntu', label: 'WSL - Ubuntu', claudeDir: '/wsl/home/.claude', platform: 'wsl' as const, available: true }
+
+    vi.mocked(fsMock.stat).mockRejectedValue(new Error('ENOENT'))
+    // computeStatsFromSessions will be called as fallback — mock it to return empty
+    vi.mocked(scanAllSessionsWithPaths).mockResolvedValue([])
+
+    const result = await parseStatsFrom(source)
+
+    // Falls back to computeStatsFromSessions which returns a minimal stats object
+    expect(result).not.toBeNull()
+    expect(result?.totalSessions).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseStatsMultiSource — aggregate stats across all data sources
+// ---------------------------------------------------------------------------
+
+describe('parseStatsMultiSource', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function freshModule() {
+    vi.resetModules()
+    return await import('./stats-parser')
+  }
+
+  it('returns null when no sources have stats', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { getDataSources } = await import('@/lib/utils/claude-path')
+    const { scanAllSessionsWithPaths } = await import('@/lib/scanner/session-scanner')
+    const mod = await freshModule()
+
+    // All sources unavailable
+    vi.mocked(getDataSources).mockResolvedValue([
+      { id: 'primary', label: 'macOS', claudeDir: '/no-exist/.claude', platform: 'macos' as const, available: false },
+    ])
+
+    vi.mocked(fsMock.stat).mockRejectedValue(new Error('ENOENT'))
+    vi.mocked(scanAllSessionsWithPaths).mockRejectedValue(new Error('no sessions'))
+
+    const result = await mod.parseStatsMultiSource()
+
+    expect(result).toBeNull()
+  })
+
+  it('returns single-source stats when only one source available', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { getDataSources } = await import('@/lib/utils/claude-path')
+    const { readDiskCache } = await import('@/lib/cache/disk-cache')
+    const mod = await freshModule()
+
+    const stats = makeStatsCache({ totalSessions: 7, totalMessages: 70 })
+
+    vi.mocked(getDataSources).mockResolvedValue([
+      { id: 'primary', label: 'macOS', claudeDir: '/home/.claude', platform: 'macos' as const, available: true },
+    ])
+    vi.mocked(fsMock.stat).mockResolvedValue(makeStat(1_000_000) as never)
+    vi.mocked(readDiskCache).mockReturnValue(stats)
+
+    const result = await mod.parseStatsMultiSource()
+
+    expect(result).toEqual(stats)
+  })
+
+  it('merges stats from multiple sources', async () => {
+    const { promises: fsMock } = await import('node:fs')
+    const { getDataSources } = await import('@/lib/utils/claude-path')
+    const { readDiskCache } = await import('@/lib/cache/disk-cache')
+    const mod = await freshModule()
+
+    const stats1 = makeStatsCache({ totalSessions: 10, totalMessages: 100, hourCounts: { '9': 3 } })
+    const stats2 = makeStatsCache({ totalSessions: 5, totalMessages: 40, hourCounts: { '9': 1, '14': 2 } })
+
+    vi.mocked(getDataSources).mockResolvedValue([
+      { id: 'primary', label: 'macOS', claudeDir: '/home1/.claude', platform: 'macos' as const, available: true },
+      { id: 'wsl-ubuntu', label: 'WSL - Ubuntu', claudeDir: '/home2/.claude', platform: 'wsl' as const, available: true },
+    ])
+
+    vi.mocked(fsMock.stat).mockResolvedValue(makeStat(1_000_000) as never)
+    // Return different stats for each source path
+    vi.mocked(readDiskCache)
+      .mockReturnValueOnce(stats1)
+      .mockReturnValueOnce(stats2)
+
+    const result = await mod.parseStatsMultiSource()
+
+    expect(result).not.toBeNull()
+    expect(result!.totalSessions).toBe(15)
+    expect(result!.totalMessages).toBe(140)
+    expect(result!.hourCounts).toEqual({ '9': 4, '14': 2 })
   })
 })

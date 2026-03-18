@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
-import { getStatsPath } from '../utils/claude-path'
+import { getStatsPath, getStatsPathFor, getDataSources } from '../utils/claude-path'
+import type { DataSource } from '../utils/claude-path'
 import { readDiskCache, writeDiskCache } from '../cache/disk-cache'
 import { StatsCacheSchema, type StatsCache } from './types'
 import type { SessionDetail, SessionSummary } from './types'
@@ -60,6 +61,64 @@ export async function parseStats(): Promise<StatsCache | null> {
     const computed = await computeStatsFromSessions()
     return computed
   }
+}
+
+/**
+ * Parse stats from a specific DataSource's stats-cache.json file.
+ * Similar to parseStats() but reads from the source-specific path instead of the default.
+ * Does NOT use module-level caching (each call reads fresh from disk).
+ */
+export async function parseStatsFrom(source: DataSource): Promise<StatsCache | null> {
+  const statsPath = getStatsPathFor(source)
+
+  const stat = await fs.promises.stat(statsPath).catch(() => null)
+  if (!stat) {
+    try {
+      return await computeStatsFromSessions()
+    } catch {
+      return null
+    }
+  }
+
+  // Tier 1: disk cache (keyed by source path)
+  const diskResult = readDiskCache(`stats-${source.id}`, stat.mtimeMs, StatsCacheSchema)
+  if (diskResult) {
+    return diskResult
+  }
+
+  // Tier 2: full parse from source
+  try {
+    const raw = await fs.promises.readFile(statsPath, 'utf-8')
+    const parsed = JSON.parse(raw)
+    const result = StatsCacheSchema.parse(parsed)
+
+    writeDiskCache(`stats-${source.id}`, statsPath, stat.mtimeMs, result)
+    return result
+  } catch {
+    const computed = await computeStatsFromSessions()
+    return computed
+  }
+}
+
+/**
+ * Parse stats from all available data sources and merge them into a single StatsCache.
+ * Returns null if no sources have valid stats.
+ */
+export async function parseStatsMultiSource(): Promise<StatsCache | null> {
+  const sources = await getDataSources()
+
+  const results = await Promise.all(
+    sources.map(async (source) => {
+      try {
+        return await parseStatsFrom(source)
+      } catch {
+        return null
+      }
+    }),
+  )
+
+  const validCaches = results.filter((r): r is StatsCache => r !== null)
+  return mergeStatsCaches(validCaches)
 }
 
 /**
