@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import * as os from 'node:os'
+import { promises as fs } from 'node:fs'
 
 function resolveClaudeDir(): string {
   if (process.env.CLAUDE_HOME) {
@@ -50,4 +51,46 @@ export function extractProjectName(decodedPath: string): string {
  */
 export function extractSessionId(filename: string): string {
   return filename.replace(/\.jsonl$/, '')
+}
+
+export interface DataSource {
+  id: string
+  label: string
+  claudeDir: string
+  platform: 'windows' | 'wsl' | 'macos' | 'linux'
+  available: boolean
+}
+
+function detectCurrentPlatform(): 'windows' | 'macos' | 'linux' {
+  switch (process.platform) {
+    case 'win32':
+      return 'windows'
+    case 'darwin':
+      return 'macos'
+    default:
+      return 'linux'
+  }
+}
+
+export async function getDataSources(): Promise<DataSource[]> {
+  const claudeDir = getClaudeDir()
+  const platform = detectCurrentPlatform()
+
+  let available = false
+  try {
+    await fs.access(claudeDir)
+    available = true
+  } catch {
+    available = false
+  }
+
+  const primarySource: DataSource = {
+    id: platform,
+    label: platform === 'windows' ? 'Windows' : platform === 'macos' ? 'macOS' : 'Linux',
+    claudeDir,
+    platform,
+    available,
+  }
+
+  return [primarySource]
 }

@@ -172,4 +172,42 @@ describe('claude-path', () => {
       expect(extractSessionId('')).toBe('')
     })
   })
+
+  describe('getDataSources', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    })
+
+    it('returns at least one data source (the default)', async () => {
+      vi.stubEnv('CLAUDE_HOME', '')
+      vi.resetModules()
+      const { getDataSources } = await import('./claude-path')
+      const sources = await getDataSources()
+      expect(sources.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('default source has expected shape', async () => {
+      vi.stubEnv('CLAUDE_HOME', '/fake/.claude')
+      vi.resetModules()
+      const { getDataSources } = await import('./claude-path')
+      const sources = await getDataSources()
+      const defaultSource = sources[0]
+      expect(defaultSource).toMatchObject({
+        id: expect.any(String),
+        label: expect.any(String),
+        claudeDir: '/fake/.claude',
+        platform: expect.stringMatching(/^(windows|wsl|macos|linux)$/),
+        available: expect.any(Boolean),
+      })
+    })
+
+    it('CLAUDE_HOME source uses resolved path', async () => {
+      vi.stubEnv('CLAUDE_HOME', '/custom/claude/dir')
+      vi.resetModules()
+      const { getDataSources } = await import('./claude-path')
+      const sources = await getDataSources()
+      expect(sources[0].claudeDir).toBe('/custom/claude/dir')
+    })
+  })
 })
