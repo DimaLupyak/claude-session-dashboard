@@ -48,7 +48,7 @@ describe('SettingsSchema', () => {
     const result = SettingsSchema.safeParse(input)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data).toEqual(input)
+      expect(result.data).toEqual({ ...input, dataSources: [] })
     }
   })
 
@@ -174,6 +174,57 @@ describe('SettingsSchema', () => {
       pricingOverrides: {},
     }
 
+    const result = SettingsSchema.safeParse(input)
+    expect(result.success).toBe(false)
+  })
+
+  it('defaults dataSources to empty array when not provided', () => {
+    const input = { version: 1 }
+    const result = SettingsSchema.safeParse(input)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.dataSources).toEqual([])
+    }
+  })
+
+  it('accepts valid dataSources entries', () => {
+    const input = {
+      version: 1,
+      dataSources: [
+        { id: 'ds-1', label: 'Work laptop', path: '/home/user/.claude', enabled: true },
+        { id: 'ds-2', label: 'Server', path: '/opt/claude', enabled: false },
+      ],
+    }
+    const result = SettingsSchema.safeParse(input)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.dataSources).toHaveLength(2)
+      expect(result.data.dataSources[0]).toEqual({
+        id: 'ds-1',
+        label: 'Work laptop',
+        path: '/home/user/.claude',
+        enabled: true,
+      })
+    }
+  })
+
+  it('defaults enabled to true in dataSources entries', () => {
+    const input = {
+      version: 1,
+      dataSources: [{ id: 'ds-1', label: 'Default', path: '/tmp/.claude' }],
+    }
+    const result = SettingsSchema.safeParse(input)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.dataSources[0].enabled).toBe(true)
+    }
+  })
+
+  it('rejects dataSources entries missing required fields', () => {
+    const input = {
+      version: 1,
+      dataSources: [{ id: 'ds-1' }], // missing label and path
+    }
     const result = SettingsSchema.safeParse(input)
     expect(result.success).toBe(false)
   })

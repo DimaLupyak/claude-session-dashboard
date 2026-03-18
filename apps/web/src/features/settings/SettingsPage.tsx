@@ -58,6 +58,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       version: 1,
       subscriptionTier: tier,
       pricingOverrides: overrides,
+      dataSources: [],
     }
     mutation.mutate(updated, {
       onSuccess: () => {
