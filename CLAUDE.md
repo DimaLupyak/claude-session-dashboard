@@ -14,7 +14,7 @@ You are an **orchestrator**. You coordinate specialized agents via the Task tool
 | Design, architecture, plan a feature | `architect` agent | `Task(subagent_type=architect, prompt="...")` |
 | Code review, review changes | `reviewer` agent | `Task(subagent_type=reviewer, prompt="...")` |
 | Tests, quality checks, edge cases | `qa` agent | `Task(subagent_type=qa, prompt="...")` |
-| Create GitHub issue | `product-owner` agent | `Task(subagent_type=product-owner, prompt="...")` |
+| Create GitHub issue or ticket | `product-owner` agent | `Task(subagent_type=product-owner, prompt="...")` |
 | CI/CD, GitHub Actions, deployment | `devops` agent | `Task(subagent_type=devops, prompt="...")` |
 
 ### What YOU (the main context) may do directly
@@ -46,9 +46,10 @@ For non-trivial work, ALWAYS use these skills instead of ad-hoc requests:
 
 - `/feature <STORY-ID>` — Full pipeline: architect → implement → review → qa → PR
 - `/fix-issue <number>` — Branch → implementer fix → reviewer check → PR
-- `/open-issue <description>` — product-owner creates structured GitHub issue
-- `/review` — Quality gates + reviewer agent
+- `/open-issue <description>` — Clarify requirements → create GitHub issue
+- `/review` — Code review current changes
 - `/quality-check` — Typecheck, lint, test, build
+- `/ship` — Commit, push, PR, CI, merge
 
 When a user asks to "implement X" or "add feature Y" without using a skill, you should STILL follow the delegation rules above. Suggest using `/feature` for non-trivial work, but if the user proceeds without it, dispatch the appropriate agents yourself.
 
@@ -95,8 +96,9 @@ See `docs/spec-product.md`
 |---|---|
 | `/feature <ID>` | architect → implementer → reviewer → qa → PR |
 | `/fix-issue <#>` | implementer fix → reviewer check → PR |
-| `/open-issue <desc>` | product-owner → clarifying Qs → GitHub issue |
+| `/open-issue <desc>` | clarify requirements → GitHub issue |
 | `/review` | quality gates → reviewer agent |
 | `/quality-check` | typecheck, lint, test, build |
 | `/investigate <url>` | browser screenshots + console + network |
 | `/sdlc` | pipeline status dashboard |
+| `/ship` | commit → push → PR → CI → merge |

@@ -1,7 +1,7 @@
 ---
 name: sdlc
 description: Show SDLC pipeline status dashboard
-user_invocable: true
+user-invocable: true
 ---
 
 # SDLC Pipeline Status

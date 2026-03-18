@@ -1,14 +1,8 @@
 ---
 name: feature
-description: "Full SDLC pipeline: design → plan → implement → review → test → ship. Use this skill when the user wants to BUILD A NEW FEATURE that spans multiple files across database, API, and UI layers — anything requiring architecture design, an implementation plan, and coordinated changes across a vertical slice. Trigger on: /feature command, 'build/implement/add [feature]' requests involving new tables + server functions + UI components, multi-step feature work needing TDD and code review. Do NOT trigger for: bug fixes, refactors, small UI tweaks, single-file changes, CI fixes, test runs, PR reviews, deployments, or documentation updates."
-user_invocable: true
-arguments:
-  - name: story-id
-    description: "Story ID (e.g., CHAT-001)"
-    required: true
-  - name: description
-    description: "Short feature description"
-    required: false
+description: "Full SDLC pipeline: design → plan → implement → review → test → ship. Use this skill when the user wants to BUILD A NEW FEATURE that spans multiple files across scanner, server functions, and UI layers — anything requiring architecture design, an implementation plan, and coordinated changes across a vertical slice. Trigger on: /feature command, 'build/implement/add [feature]' requests involving new server functions + UI components, multi-step feature work needing TDD and code review. Do NOT trigger for: bug fixes, refactors, small UI tweaks, single-file changes, CI fixes, test runs, or PR reviews."
+user-invocable: true
+argument-hint: "<story-id> [description]"
 ---
 
 # Feature Development Pipeline
@@ -51,18 +45,17 @@ The architect explores context and collaborates with the user to produce a desig
 Agent(subagent_type: "architect", prompt: "
   Design feature $ARGUMENTS.story-id: $ARGUMENTS.description
 
-  IMPORTANT: Use the superpowers:brainstorming skill. Follow its complete process:
-  1. Explore project context — read relevant files, docs, recent commits
-  2. Ask 2-4 clarifying questions via AskUserQuestion (one at a time, multiple choice preferred)
-  3. Propose 2-3 approaches with trade-offs and your recommendation
-  4. Present design section by section
+  Use the superpowers:brainstorming skill. It will guide you through:
+  1. Exploring project context
+  2. Asking clarifying questions one at a time
+  3. Proposing 2-3 approaches with trade-offs
+  4. Presenting design section by section for approval
 
   The design document MUST include:
   - Problem statement and user impact
   - Chosen approach with rationale
   - Affected vertical slices and files
-  - Data flow (ASCII diagram)
-  - Database changes with migration SQL (if any)
+  - Data flow (ASCII diagram — from ~/.claude files through scanner/parser to server fn to UI)
   - Task Breakdown table: | Task | Complexity | Files | Dependencies |
 
   Save to: docs/designs/design-$ARGUMENTS.story-id.md
@@ -82,9 +75,9 @@ Convert the approved design into bite-sized implementation tasks.
 
 ```
 Agent(subagent_type: "architect", prompt: "
-  Create an implementation plan for $ARGUMENTS.story-id.
+  Use the superpowers:writing-plans skill to create the plan.
 
-  IMPORTANT: Use the superpowers:writing-plans skill. Follow its complete process.
+  Create an implementation plan for $ARGUMENTS.story-id.
 
   Here is the approved design:
   ---
@@ -127,7 +120,7 @@ Store `WORKTREE` = ../dashboard-$ARGUMENTS.story-id. All subsequent agents work 
 
 ## Step 4: Implementation (subagent-driven-development)
 
-Follow the superpowers:subagent-driven-development pattern: one fresh subagent per task, two-stage review after each.
+One fresh subagent per task, two-stage review after each.
 
 ### 4a. Set up task tracking
 
@@ -154,14 +147,11 @@ Agent(subagent_type: "implementer", prompt: "
   - This task depends on: [what it builds on]
 
   ## Your Job
-  IMPORTANT: Use superpowers:test-driven-development skill.
-  1. Write a failing test first
-  2. Run it to verify it fails
-  3. Write minimal implementation to make it pass
-  4. Run tests to verify they pass
-  5. Run typecheck and lint: cd $WORKTREE/apps/web && npm run typecheck && npm run lint
-  6. Commit with a descriptive message
-  7. Self-review (completeness, quality, YAGNI)
+  Use the superpowers:test-driven-development skill.
+  After each task: use superpowers:verification-before-completion before claiming done.
+  If you hit a bug or unexpected failure: use superpowers:systematic-debugging.
+  Run typecheck and lint after implementation: cd $WORKTREE/apps/web && npm run typecheck && npm run lint
+  Commit with a descriptive message.
 
   If anything is unclear — ask questions before starting.
 
@@ -254,7 +244,7 @@ Agent(subagent_type: "reviewer", prompt: "
   - Consistency: naming, patterns, error handling across all new code
   - Missing pieces: anything the task-level reviews might have missed?
   - Architecture: does the overall implementation match the design?
-  - Security: end-to-end data flow, auth, RLS
+  - Security: end-to-end data flow, no path traversal, no secrets exposed
 
   Design document for reference:
   ---
@@ -293,4 +283,3 @@ Ask: "Ready to ship? (yes/no)"
 4. **ALWAYS** run verification commands yourself and read the output before claiming success
 5. **ALWAYS** use TaskCreate/TaskUpdate to track each plan task through the pipeline
 6. If an agent fails or produces poor results, dispatch it again with the error output and specific corrective instructions — don't try to fix it yourself
-7. Tell agents which superpowers skills to use — they have access but need the instruction

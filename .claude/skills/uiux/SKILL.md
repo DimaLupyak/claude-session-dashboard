@@ -1,7 +1,7 @@
 ---
 name: uiux
 description: Dashboard design system — colors, typography, spacing, components, and visual patterns for the session dashboard UI.
-user_invocable: false
+user-invocable: false
 ---
 
 # Dashboard Design System

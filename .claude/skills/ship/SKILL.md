@@ -1,7 +1,7 @@
 ---
 name: ship
 description: Commit, push, create PR, then after approval check CI and merge. Use when work is done and ready to ship.
-user_invocable: true
+user-invocable: true
 ---
 
 # Ship

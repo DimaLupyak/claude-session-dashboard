@@ -1,7 +1,7 @@
 ---
 name: react-rules
 description: React and component patterns
-user_invocable: false
+user-invocable: false
 ---
 
 # React Rules
