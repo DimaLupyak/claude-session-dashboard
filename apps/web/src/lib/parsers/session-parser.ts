@@ -169,8 +169,13 @@ export async function parseDetail(
         agentProgressModel.set(parentId, progressModel)
       }
 
+      // Deduplicate progress messages by requestId — same API call can appear multiple times
+      const progressRequestId = msg.requestId
+      const isNewProgressRequest = !progressRequestId || !seenRequestIds.has(progressRequestId)
+      if (progressRequestId) seenRequestIds.add(progressRequestId)
+
       const usage = msg.data?.message?.message?.usage
-      if (usage) {
+      if (usage && isNewProgressRequest) {
         const existing = agentProgressTokens.get(parentId) ?? {
           inputTokens: 0,
           outputTokens: 0,
