@@ -9,6 +9,8 @@ vi.mock('node:fs', () => ({
 
 vi.mock('@/lib/utils/claude-path', () => ({
   getProjectsDir: vi.fn(() => '/fake/projects'),
+  getProjectsDirFor: vi.fn((source: { claudeDir: string }) => `${source.claudeDir}/projects`),
+  getDataSources: vi.fn(),
   decodeProjectDirName: vi.fn((dirName: string) =>
     dirName.replace(/^-/, '/').replace(/-/g, '/'),
   ),
@@ -19,7 +21,8 @@ vi.mock('@/lib/utils/claude-path', () => ({
 }))
 
 import * as fs from 'node:fs'
-import { scanProjects } from './project-scanner'
+import { getDataSources } from '@/lib/utils/claude-path'
+import { scanProjects, scanProjectsFrom, scanAllProjects } from './project-scanner'
 
 const mockReaddir = fs.promises.readdir as ReturnType<typeof vi.fn>
 const mockStat = fs.promises.stat as ReturnType<typeof vi.fn>
@@ -198,5 +201,189 @@ describe('scanProjects', () => {
       expect(result).toHaveLength(1)
       expect(result[0].dirName).toBe(dir1)
     })
+  })
+})
+
+describe('scanProjectsFrom', () => {
+  it('scans projects from a specific data source directory', async () => {
+    const source = {
+      id: 'wsl-ubuntu-dev',
+      label: 'WSL - Ubuntu',
+      claudeDir: '/mnt/wsl/ubuntu/home/dev/.claude',
+      platform: 'wsl' as const,
+      available: true,
+    }
+    const dirName = '-home-dev-myproject'
+
+    mockReaddir
+      .mockResolvedValueOnce([dirName])
+      .mockResolvedValueOnce(['session-1.jsonl'])
+    mockStat.mockResolvedValueOnce(makeStat(true))
+
+    const result = await scanProjectsFrom(source)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].dirName).toBe(dirName)
+    expect(result[0].sourceId).toBe('wsl-ubuntu-dev')
+    expect(result[0].sourceLabel).toBe('WSL - Ubuntu')
+    // Verify it used the source-specific projects dir
+    expect(mockReaddir).toHaveBeenCalledWith('/mnt/wsl/ubuntu/home/dev/.claude/projects')
+  })
+
+  it('returns [] when the source projects directory does not exist', async () => {
+    const source = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/alice/.claude',
+      platform: 'macos' as const,
+      available: true,
+    }
+
+    mockReaddir.mockRejectedValueOnce(new Error('ENOENT'))
+
+    const result = await scanProjectsFrom(source)
+
+    expect(result).toEqual([])
+  })
+
+  it('sets sourceId and sourceLabel on all returned projects', async () => {
+    const source = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/alice/.claude',
+      platform: 'macos' as const,
+      available: true,
+    }
+    const dir1 = '-Users-alice-proj1'
+    const dir2 = '-Users-alice-proj2'
+
+    mockReaddir
+      .mockResolvedValueOnce([dir1, dir2])
+      .mockResolvedValueOnce(['a.jsonl'])
+      .mockResolvedValueOnce(['b.jsonl'])
+    mockStat
+      .mockResolvedValueOnce(makeStat(true))
+      .mockResolvedValueOnce(makeStat(true))
+
+    const result = await scanProjectsFrom(source)
+
+    expect(result).toHaveLength(2)
+    for (const project of result) {
+      expect(project.sourceId).toBe('primary')
+      expect(project.sourceLabel).toBe('macOS')
+    }
+  })
+})
+
+describe('scanAllProjects', () => {
+  const mockGetDataSources = getDataSources as ReturnType<typeof vi.fn>
+
+  it('merges projects from multiple data sources', async () => {
+    const source1 = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/alice/.claude',
+      platform: 'macos' as const,
+      available: true,
+    }
+    const source2 = {
+      id: 'wsl-ubuntu-alice',
+      label: 'WSL - Ubuntu',
+      claudeDir: '/mnt/wsl/ubuntu/home/alice/.claude',
+      platform: 'wsl' as const,
+      available: true,
+    }
+
+    mockGetDataSources.mockResolvedValueOnce([source1, source2])
+
+    // Source 1 readdir calls
+    mockReaddir
+      .mockResolvedValueOnce(['-Users-alice-proj1'])
+      .mockResolvedValueOnce(['s1.jsonl'])
+    mockStat.mockResolvedValueOnce(makeStat(true))
+
+    // Source 2 readdir calls
+    mockReaddir
+      .mockResolvedValueOnce(['-home-alice-proj2'])
+      .mockResolvedValueOnce(['s2.jsonl'])
+    mockStat.mockResolvedValueOnce(makeStat(true))
+
+    const result = await scanAllProjects()
+
+    expect(result).toHaveLength(2)
+    expect(result[0].sourceId).toBe('primary')
+    expect(result[0].sourceLabel).toBe('macOS')
+    expect(result[1].sourceId).toBe('wsl-ubuntu-alice')
+    expect(result[1].sourceLabel).toBe('WSL - Ubuntu')
+  })
+
+  it('skips unavailable data sources', async () => {
+    const available = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/alice/.claude',
+      platform: 'macos' as const,
+      available: true,
+    }
+    const unavailable = {
+      id: 'wsl-ubuntu',
+      label: 'WSL - Ubuntu',
+      claudeDir: '/mnt/wsl/ubuntu/.claude',
+      platform: 'wsl' as const,
+      available: false,
+    }
+
+    mockGetDataSources.mockResolvedValueOnce([available, unavailable])
+
+    mockReaddir
+      .mockResolvedValueOnce(['-Users-alice-proj'])
+      .mockResolvedValueOnce(['s.jsonl'])
+    mockStat.mockResolvedValueOnce(makeStat(true))
+
+    const result = await scanAllProjects()
+
+    expect(result).toHaveLength(1)
+    expect(result[0].sourceId).toBe('primary')
+  })
+
+  it('returns [] when no data sources are available', async () => {
+    mockGetDataSources.mockResolvedValueOnce([])
+
+    const result = await scanAllProjects()
+
+    expect(result).toEqual([])
+  })
+
+  it('continues when one source fails and another succeeds', async () => {
+    const source1 = {
+      id: 'primary',
+      label: 'macOS',
+      claudeDir: '/Users/alice/.claude',
+      platform: 'macos' as const,
+      available: true,
+    }
+    const source2 = {
+      id: 'wsl-ubuntu',
+      label: 'WSL - Ubuntu',
+      claudeDir: '/mnt/wsl/ubuntu/.claude',
+      platform: 'wsl' as const,
+      available: true,
+    }
+
+    mockGetDataSources.mockResolvedValueOnce([source1, source2])
+
+    // Source 1 fails
+    mockReaddir.mockRejectedValueOnce(new Error('ENOENT'))
+
+    // Source 2 succeeds
+    mockReaddir
+      .mockResolvedValueOnce(['-home-alice-proj'])
+      .mockResolvedValueOnce(['s.jsonl'])
+    mockStat.mockResolvedValueOnce(makeStat(true))
+
+    const result = await scanAllProjects()
+
+    expect(result).toHaveLength(1)
+    expect(result[0].sourceId).toBe('wsl-ubuntu')
   })
 })
