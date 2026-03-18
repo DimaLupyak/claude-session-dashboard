@@ -806,6 +806,144 @@ describe('parseSubagentSkills', () => {
     })
   })
 
+  describe('requestId deduplication in main parser', () => {
+    it('should deduplicate assistant message tokens by requestId', async () => {
+      const sessionPath = createSessionJSONL([
+        // Two assistant messages with SAME requestId — should count only once
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:00Z',
+          requestId: 'req-dup-1',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            usage: {
+              input_tokens: 10000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 5000,
+              cache_creation_input_tokens: 1000,
+            },
+            content: [{ type: 'text', text: 'First part of response' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:01Z',
+          requestId: 'req-dup-1',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            usage: {
+              input_tokens: 10000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 5000,
+              cache_creation_input_tokens: 1000,
+            },
+            content: [
+              { type: 'tool_use', name: 'Read', id: 'r1', input: { file_path: '/test.ts' } },
+            ],
+          },
+        }),
+        // One assistant message with DIFFERENT requestId — should be counted
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:01:00Z',
+          requestId: 'req-unique-1',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            usage: {
+              input_tokens: 8000,
+              output_tokens: 3000,
+              cache_read_input_tokens: 4000,
+              cache_creation_input_tokens: 500,
+            },
+            content: [{ type: 'text', text: 'Different request' }],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      // Only 2 unique requests: req-dup-1 (once) + req-unique-1
+      expect(result.totalTokens.inputTokens).toBe(10000 + 8000)
+      expect(result.totalTokens.outputTokens).toBe(2000 + 3000)
+      expect(result.totalTokens.cacheReadInputTokens).toBe(5000 + 4000)
+      expect(result.totalTokens.cacheCreationInputTokens).toBe(1000 + 500)
+    })
+
+    it('should still count assistant messages without requestId', async () => {
+      const sessionPath = createSessionJSONL([
+        // Message without requestId — always counted
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:00Z',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            usage: {
+              input_tokens: 5000,
+              output_tokens: 1000,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            content: [{ type: 'text', text: 'Response' }],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      expect(result.totalTokens.inputTokens).toBe(5000)
+      expect(result.totalTokens.outputTokens).toBe(1000)
+    })
+
+    it('should deduplicate tokensByModel when same requestId appears twice', async () => {
+      const sessionPath = createSessionJSONL([
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:00Z',
+          requestId: 'req-model-dup',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            usage: {
+              input_tokens: 10000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            content: [{ type: 'text', text: 'First part' }],
+          },
+        }),
+        JSON.stringify({
+          type: 'assistant',
+          timestamp: '2026-01-01T10:00:01Z',
+          requestId: 'req-model-dup',
+          message: {
+            model: 'claude-sonnet-4-20250514',
+            usage: {
+              input_tokens: 10000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            content: [
+              {
+                type: 'tool_use',
+                name: 'Write',
+                id: 'w1',
+                input: { file_path: '/a.ts', content: 'x' },
+              },
+            ],
+          },
+        }),
+      ])
+
+      const result = await parseDetail(sessionPath, 'test-session', '/test', 'test-project')
+
+      const modelTokens = result.tokensByModel['claude-sonnet-4-20250514']
+      expect(modelTokens).toBeDefined()
+      expect(modelTokens.inputTokens).toBe(10000) // not 20000
+      expect(modelTokens.outputTokens).toBe(2000) // not 4000
+    })
+  })
+
   describe('edge cases', () => {
     it('should handle non-existent subagent file gracefully', async () => {
       const sessionPath = createSessionJSONL(makeSessionWithAgent('agent-nonexistent'))
