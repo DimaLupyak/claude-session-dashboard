@@ -953,6 +953,46 @@ function extractToolResultText(block: {
   return undefined
 }
 
+/**
+ * Lightweight streaming counter that extracts only output tokens from a session JSONL.
+ *
+ * Reads every line but only looks at two token sources:
+ * 1. `assistant` messages: `message.usage.output_tokens`
+ * 2. `progress` messages: `data.message.message.usage.output_tokens`
+ *
+ * Deduplicates by `requestId` to avoid double-counting repeated API responses.
+ * Much cheaper than `parseDetail()` -- no turn/tool/agent tracking.
+ */
+export async function parseOutputTokens(filePath: string): Promise<number> {
+  let total = 0
+  const seenRequestIds = new Set<string>()
+
+  const stream = fs.createReadStream(filePath, { encoding: 'utf-8' })
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+
+  for await (const line of rl) {
+    const msg = safeParse(line)
+    if (!msg) continue
+
+    const requestId = msg.requestId
+    if (requestId && seenRequestIds.has(requestId)) continue
+    if (requestId) seenRequestIds.add(requestId)
+
+    // Source 1: assistant messages
+    if (msg.type === 'assistant' && msg.message?.usage?.output_tokens) {
+      total += msg.message.usage.output_tokens
+      continue
+    }
+
+    // Source 2: progress messages (subagent token data)
+    if (msg.type === 'progress' && msg.data?.message?.message?.usage?.output_tokens) {
+      total += msg.data.message.message.usage.output_tokens
+    }
+  }
+
+  return total
+}
+
 function extractTextContent(msg: RawJsonlMessage): string | undefined {
   if (!msg.message) return undefined
   const content = msg.message.content
