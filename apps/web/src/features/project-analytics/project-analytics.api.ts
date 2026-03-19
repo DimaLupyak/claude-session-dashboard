@@ -8,6 +8,7 @@ export interface ProjectAnalytics {
   totalSessions: number
   activeSessions: number
   totalMessages: number
+  outputTokens: number
   totalDurationMs: number
   firstSessionAt: string
   lastSessionAt: string
@@ -44,6 +45,7 @@ export function aggregateProjectAnalytics(
       totalSessions: sessions.length,
       activeSessions: sessions.filter((s) => s.isActive).length,
       totalMessages: sessions.reduce((sum, s) => sum + s.messageCount, 0),
+      outputTokens: sessions.reduce((sum, s) => sum + (s.outputTokens ?? 0), 0),
       totalDurationMs: sessions.reduce((sum, s) => sum + s.durationMs, 0),
       firstSessionAt: sessions.reduce(
         (min, s) => (s.startedAt < min ? s.startedAt : min),

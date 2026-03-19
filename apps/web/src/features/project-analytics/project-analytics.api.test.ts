@@ -119,6 +119,19 @@ describe('project-analytics', () => {
       expect(result.projects[0].totalDurationMs).toBe(6000)
     })
 
+    it('should sum output tokens correctly', () => {
+      const sessions = [
+        createMockSession({ projectPath: '/project-a', projectName: 'project-a', outputTokens: 1500 }),
+        createMockSession({ projectPath: '/project-a', projectName: 'project-a', outputTokens: 2500 }),
+        createMockSession({ projectPath: '/project-a', projectName: 'project-a', outputTokens: undefined }),
+      ]
+
+      const result = aggregateProjectAnalytics(sessions)
+
+      expect(result.projects).toHaveLength(1)
+      expect(result.projects[0].outputTokens).toBe(4000)
+    })
+
     it('should find first session timestamp correctly', () => {
       const sessions = [
         createMockSession({
@@ -242,6 +255,7 @@ describe('project-analytics', () => {
         totalSessions: 1,
         activeSessions: 1,
         totalMessages: 10,
+        outputTokens: 0,
         totalDurationMs: 1000,
         firstSessionAt: '2026-01-01T00:00:00Z',
         lastSessionAt: '2026-01-01T01:00:00Z',
@@ -290,6 +304,7 @@ describe('project-analytics', () => {
         totalSessions: 1,
         activeSessions: 1,
         totalMessages: 5,
+        outputTokens: 0,
         totalDurationMs: 500,
         firstSessionAt: '2026-01-04T00:00:00Z',
         lastSessionAt: '2026-01-05T00:00:00Z',
@@ -302,6 +317,7 @@ describe('project-analytics', () => {
         totalSessions: 2,
         activeSessions: 1,
         totalMessages: 30,
+        outputTokens: 0,
         totalDurationMs: 3000,
         firstSessionAt: '2026-01-01T00:00:00Z',
         lastSessionAt: '2026-01-03T00:00:00Z',
