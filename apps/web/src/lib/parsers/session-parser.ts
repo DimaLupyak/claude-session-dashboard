@@ -58,6 +58,7 @@ export async function parseSummary(
   let userMessageCount = 0
   let assistantMessageCount = 0
   let totalMessageCount = 0
+  let toolCallCount = 0
 
   for (const line of allLines) {
     const msg = safeParse(line)
@@ -78,6 +79,12 @@ export async function parseSummary(
     if (msg.type === 'assistant') {
       assistantMessageCount++
       if (msg.message?.model && !model) model = msg.message.model
+      const content = msg.message?.content
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type === 'tool_use') toolCallCount++
+        }
+      }
     }
     if (msg.type === 'user' || msg.type === 'assistant' || msg.type === 'system') {
       totalMessageCount++
@@ -104,6 +111,7 @@ export async function parseSummary(
     userMessageCount,
     assistantMessageCount,
     isActive: false, // Will be set by caller
+    toolCallCount,
     model,
     version,
     fileSizeBytes,
