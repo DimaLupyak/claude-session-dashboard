@@ -40,6 +40,10 @@ export function SessionCard({ session }: { session: SessionSummary }) {
               <span className="font-mono">{displayBranch}</span>
             </p>
           )}
+
+          <p className="mt-1 truncate text-xs text-gray-500 font-mono">
+            {session.sessionId.slice(0, 8)}
+          </p>
         </div>
 
         <span className="shrink-0 text-xs text-gray-500">
@@ -63,9 +67,6 @@ export function SessionCard({ session }: { session: SessionSummary }) {
         )}
         <span title="File size" className="text-gray-500">
           {formatBytes(session.fileSizeBytes)}
-        </span>
-        <span title="Session ID" className="font-mono text-gray-500">
-          {session.sessionId.slice(0, 8)}
         </span>
       </div>
 
