@@ -59,6 +59,9 @@ export function SessionCard({ session }: { session: SessionSummary }) {
           )}
         </span>
         <span title="Messages">{session.messageCount} msgs</span>
+        {session.toolCallCount > 0 && (
+          <span title="Tool calls">{session.toolCallCount} tools</span>
+        )}
         {session.model && (
           <span title="Model" className="truncate font-mono text-gray-500">
             {session.model.replace(/^claude-/, '').split('-202')[0]}

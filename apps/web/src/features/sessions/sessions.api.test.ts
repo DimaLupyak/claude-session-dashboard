@@ -18,6 +18,7 @@ describe('paginateAndFilterSessions', () => {
     userMessageCount: 5,
     assistantMessageCount: 5,
     isActive: false,
+    toolCallCount: 0,
     model: 'claude-opus-4-6',
     version: '1.0.0',
     fileSizeBytes: 1024,
@@ -39,6 +40,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'myproject',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(1)
@@ -59,6 +62,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'FEATURE',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(2)
@@ -78,6 +83,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'ABC',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(1)
@@ -97,6 +104,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'WEB',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(1)
@@ -115,6 +124,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'main',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(1)
@@ -134,6 +145,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(3)
@@ -155,6 +168,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'active',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(2)
@@ -175,6 +190,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'completed',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(2)
@@ -195,6 +212,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(3)
@@ -216,6 +235,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: 'project-a',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(1)
@@ -235,6 +256,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(2)
@@ -268,6 +291,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'auth',
         status: 'active',
         project: 'web-app',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(1)
@@ -289,6 +314,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(page1.sessions).toHaveLength(10)
@@ -304,6 +331,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(page2.sessions).toHaveLength(10)
@@ -317,6 +346,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(page3.sessions).toHaveLength(5)
@@ -347,6 +378,8 @@ describe('paginateAndFilterSessions', () => {
           search: '',
           status: 'all',
           project: '',
+          sort: 'lastActive',
+          sortDir: 'desc',
         })
 
         expect(result.totalPages).toBe(expected)
@@ -365,6 +398,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(beyondResult.page).toBe(3) // Last page
@@ -378,6 +413,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(negativeResult.page).toBe(1)
@@ -395,6 +432,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(5)
@@ -413,6 +452,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(page1.sessions).toHaveLength(5)
@@ -427,6 +468,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(page2.sessions).toHaveLength(5)
@@ -439,6 +482,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(page3.sessions).toHaveLength(2)
@@ -455,6 +500,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(0)
@@ -470,6 +517,8 @@ describe('paginateAndFilterSessions', () => {
         search: 'nonexistent',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(0)
@@ -489,11 +538,108 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'active',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.sessions).toHaveLength(0)
       expect(result.totalCount).toBe(0)
       expect(result.totalPages).toBe(1)
+    })
+  })
+
+  describe('sorting', () => {
+    it('should sort by lastActive descending by default', async () => {
+      const sessions = [
+        createMockSession({ sessionId: 'old', lastActiveAt: '2026-01-01T10:00:00Z' }),
+        createMockSession({ sessionId: 'new', lastActiveAt: '2026-01-03T10:00:00Z' }),
+        createMockSession({ sessionId: 'mid', lastActiveAt: '2026-01-02T10:00:00Z' }),
+      ]
+
+      const result = await paginateAndFilterSessions(sessions, {
+        page: 1, pageSize: 10, search: '', status: 'all', project: '',
+        sort: 'lastActive', sortDir: 'desc',
+      })
+
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(['new', 'mid', 'old'])
+    })
+
+    it('should sort by lastActive ascending', async () => {
+      const sessions = [
+        createMockSession({ sessionId: 'old', lastActiveAt: '2026-01-01T10:00:00Z' }),
+        createMockSession({ sessionId: 'new', lastActiveAt: '2026-01-03T10:00:00Z' }),
+        createMockSession({ sessionId: 'mid', lastActiveAt: '2026-01-02T10:00:00Z' }),
+      ]
+
+      const result = await paginateAndFilterSessions(sessions, {
+        page: 1, pageSize: 10, search: '', status: 'all', project: '',
+        sort: 'lastActive', sortDir: 'asc',
+      })
+
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(['old', 'mid', 'new'])
+    })
+
+    it('should sort by started descending', async () => {
+      const sessions = [
+        createMockSession({ sessionId: 'first', startedAt: '2026-01-01T08:00:00Z' }),
+        createMockSession({ sessionId: 'third', startedAt: '2026-01-03T08:00:00Z' }),
+        createMockSession({ sessionId: 'second', startedAt: '2026-01-02T08:00:00Z' }),
+      ]
+
+      const result = await paginateAndFilterSessions(sessions, {
+        page: 1, pageSize: 10, search: '', status: 'all', project: '',
+        sort: 'started', sortDir: 'desc',
+      })
+
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(['third', 'second', 'first'])
+    })
+
+    it('should sort by duration descending', async () => {
+      const sessions = [
+        createMockSession({ sessionId: 'short', durationMs: 1000 }),
+        createMockSession({ sessionId: 'long', durationMs: 9000 }),
+        createMockSession({ sessionId: 'medium', durationMs: 5000 }),
+      ]
+
+      const result = await paginateAndFilterSessions(sessions, {
+        page: 1, pageSize: 10, search: '', status: 'all', project: '',
+        sort: 'duration', sortDir: 'desc',
+      })
+
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(['long', 'medium', 'short'])
+    })
+
+    it('should sort by messages descending', async () => {
+      const sessions = [
+        createMockSession({ sessionId: 'few', messageCount: 5 }),
+        createMockSession({ sessionId: 'many', messageCount: 50 }),
+        createMockSession({ sessionId: 'some', messageCount: 20 }),
+      ]
+
+      const result = await paginateAndFilterSessions(sessions, {
+        page: 1, pageSize: 10, search: '', status: 'all', project: '',
+        sort: 'messages', sortDir: 'desc',
+      })
+
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(['many', 'some', 'few'])
+    })
+
+    it('should apply sorting after filtering but before pagination', async () => {
+      const sessions = [
+        createMockSession({ sessionId: 's1', projectName: 'web', durationMs: 1000 }),
+        createMockSession({ sessionId: 's2', projectName: 'api', durationMs: 9000 }),
+        createMockSession({ sessionId: 's3', projectName: 'web', durationMs: 5000 }),
+        createMockSession({ sessionId: 's4', projectName: 'web', durationMs: 3000 }),
+      ]
+
+      const result = await paginateAndFilterSessions(sessions, {
+        page: 1, pageSize: 2, search: '', status: 'all', project: 'web',
+        sort: 'duration', sortDir: 'desc',
+      })
+
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(['s3', 's4'])
+      expect(result.totalCount).toBe(3)
+      expect(result.totalPages).toBe(2)
     })
   })
 
@@ -512,6 +658,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.projects).toEqual(['project-a', 'project-b', 'project-c'])
@@ -530,6 +678,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'active', // Filters to only project-a
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       // Projects list should still include all projects
@@ -546,6 +696,8 @@ describe('paginateAndFilterSessions', () => {
         search: '',
         status: 'all',
         project: '',
+        sort: 'lastActive',
+        sortDir: 'desc',
       })
 
       expect(result.projects).toEqual([])

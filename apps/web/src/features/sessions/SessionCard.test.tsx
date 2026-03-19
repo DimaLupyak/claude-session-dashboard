@@ -24,6 +24,7 @@ describe('SessionCard', () => {
     userMessageCount: 21,
     assistantMessageCount: 21,
     isActive: false,
+    toolCallCount: 15,
     model: 'claude-sonnet-4-5-20250929',
     version: '0.4.1',
     fileSizeBytes: 102400,
@@ -37,6 +38,25 @@ describe('SessionCard', () => {
       </PrivacyProvider>
     )
     expect(screen.getByText(mockSession.sessionId.slice(0, 8))).toBeTruthy()
+  })
+
+  it('renders tool call count when greater than zero', () => {
+    render(
+      <PrivacyProvider>
+        <SessionCard session={{ ...mockSession, toolCallCount: 15 }} />
+      </PrivacyProvider>
+    )
+    expect(screen.getByTitle('Tool calls')).toBeTruthy()
+    expect(screen.getByText('15 tools')).toBeTruthy()
+  })
+
+  it('does not render tool call count when zero', () => {
+    render(
+      <PrivacyProvider>
+        <SessionCard session={{ ...mockSession, toolCallCount: 0 }} />
+      </PrivacyProvider>
+    )
+    expect(screen.queryByTitle('Tool calls')).toBeNull()
   })
 
   it('does not render the full session ID', () => {

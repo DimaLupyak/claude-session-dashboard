@@ -3,6 +3,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { Route } from '@/routes/_dashboard/sessions/index'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
 
+const SORT_OPTIONS = ['lastActive', 'started', 'duration', 'messages'] as const
+type SortOption = typeof SORT_OPTIONS[number]
+
 interface SessionFiltersProps {
   projects: string[]
   activeCount: number
@@ -10,7 +13,7 @@ interface SessionFiltersProps {
 
 export function SessionFilters({ projects, activeCount }: SessionFiltersProps) {
   const navigate = useNavigate()
-  const { search: urlSearch, status, project } = Route.useSearch()
+  const { search: urlSearch, status, project, sort, sortDir } = Route.useSearch()
   const { privacyMode, anonymizeProjectName } = usePrivacy()
 
   // Local search state with debounce
@@ -50,6 +53,29 @@ export function SessionFilters({ projects, activeCount }: SessionFiltersProps) {
     navigate({
       to: '/sessions',
       search: (prev) => ({ ...prev, status: newStatus, page: 1 }),
+    })
+  }
+
+  function handleSortChange(newSort: string) {
+    if (!SORT_OPTIONS.includes(newSort as SortOption)) return
+    navigate({
+      to: '/sessions',
+      search: (prev) => ({
+        ...prev,
+        sort: newSort as SortOption,
+        page: 1,
+      }),
+    })
+  }
+
+  function handleSortDirToggle() {
+    navigate({
+      to: '/sessions',
+      search: (prev) => ({
+        ...prev,
+        sortDir: sortDir === 'asc' ? 'desc' : 'asc',
+        page: 1,
+      }),
     })
   }
 
@@ -103,6 +129,27 @@ export function SessionFilters({ projects, activeCount }: SessionFiltersProps) {
           ))}
         </select>
       )}
+
+      <div className="flex items-center gap-1">
+        <select
+          value={sort}
+          onChange={(e) => handleSortChange(e.target.value)}
+          className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-sm text-gray-200 outline-none focus:border-brand-500"
+        >
+          <option value="lastActive">Last active</option>
+          <option value="started">Started</option>
+          <option value="duration">Duration</option>
+          <option value="messages">Messages</option>
+        </select>
+        <button
+          type="button"
+          onClick={handleSortDirToggle}
+          className="rounded-lg border border-gray-700 px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
+          title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+        >
+          {sortDir === 'asc' ? '\u2191' : '\u2193'}
+        </button>
+      </div>
     </div>
   )
 }

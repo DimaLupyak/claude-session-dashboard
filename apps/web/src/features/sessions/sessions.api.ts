@@ -21,6 +21,8 @@ const paginatedSessionsInputSchema = z.object({
   search: z.string(),
   status: z.enum(['all', 'active', 'completed']),
   project: z.string(),
+  sort: z.enum(['lastActive', 'started', 'duration', 'messages']).default('lastActive'),
+  sortDir: z.enum(['asc', 'desc']).default('desc'),
 })
 
 type PaginatedSessionsInput = z.infer<typeof paginatedSessionsInputSchema>
@@ -42,7 +44,7 @@ export async function paginateAndFilterSessions(
   allSessions: SessionSummary[],
   input: PaginatedSessionsInput,
 ): Promise<PaginatedSessionsResult> {
-  const { page, pageSize, search, status, project } = input
+  const { page, pageSize, search, status, project, sort = 'lastActive', sortDir = 'desc' } = input
 
   // Extract distinct project names from full unfiltered set
   const projects = Array.from(
@@ -76,7 +78,27 @@ export async function paginateAndFilterSessions(
     filtered = filtered.filter((s) => s.projectName === project)
   }
 
-  const totalCount = filtered.length
+  // Sort after filtering
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0
+    switch (sort) {
+      case 'lastActive':
+        cmp = a.lastActiveAt.localeCompare(b.lastActiveAt)
+        break
+      case 'started':
+        cmp = a.startedAt.localeCompare(b.startedAt)
+        break
+      case 'duration':
+        cmp = a.durationMs - b.durationMs
+        break
+      case 'messages':
+        cmp = a.messageCount - b.messageCount
+        break
+    }
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const totalCount = sorted.length
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   // Clamp page to valid range
@@ -85,7 +107,7 @@ export async function paginateAndFilterSessions(
   // Slice to page
   const start = (clampedPage - 1) * pageSize
   const end = start + pageSize
-  const sessions = filtered.slice(start, end)
+  const sessions = sorted.slice(start, end)
 
   return {
     sessions,

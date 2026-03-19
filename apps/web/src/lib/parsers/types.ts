@@ -15,6 +15,7 @@ export interface SessionSummary {
   userMessageCount: number
   assistantMessageCount: number
   isActive: boolean
+  toolCallCount: number
   model: string | null
   version: string | null
   fileSizeBytes: number
