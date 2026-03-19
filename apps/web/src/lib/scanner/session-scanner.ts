@@ -59,7 +59,7 @@ async function scanSessionsInternal(): Promise<SessionSummaryWithPath[]> {
       if (summary) {
         const active = await isSessionActive(project.dirName, sessionId)
         summary.isActive = active
-        summary.outputTokens = await parseOutputTokens(filePath)
+        summary.outputTokens = await parseOutputTokens(filePath).catch(() => undefined)
 
         summaryCache.set(sessionId, {
           mtimeMs: stat.mtimeMs,
@@ -138,7 +138,7 @@ export async function scanSessionsFromSource(source: DataSource): Promise<Sessio
       if (summary) {
         const active = await isSessionActive(project.dirName, sessionId, projectsDirOverride)
         summary.isActive = active
-        summary.outputTokens = await parseOutputTokens(filePath)
+        summary.outputTokens = await parseOutputTokens(filePath).catch(() => undefined)
         summary.sourceId = source.id
         summary.sourceLabel = source.label
         summary.sourcePlatform = source.platform
