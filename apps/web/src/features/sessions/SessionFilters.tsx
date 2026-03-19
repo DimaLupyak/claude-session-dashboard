@@ -3,6 +3,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { Route } from '@/routes/_dashboard/sessions/index'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
 
+const SORT_OPTIONS = ['lastActive', 'started', 'duration', 'messages'] as const
+type SortOption = typeof SORT_OPTIONS[number]
+
 interface SessionFiltersProps {
   projects: string[]
   activeCount: number
@@ -54,11 +57,12 @@ export function SessionFilters({ projects, activeCount }: SessionFiltersProps) {
   }
 
   function handleSortChange(newSort: string) {
+    if (!SORT_OPTIONS.includes(newSort as SortOption)) return
     navigate({
       to: '/sessions',
       search: (prev) => ({
         ...prev,
-        sort: newSort as 'lastActive' | 'started' | 'duration' | 'messages',
+        sort: newSort as SortOption,
         page: 1,
       }),
     })

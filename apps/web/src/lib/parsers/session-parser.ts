@@ -35,7 +35,14 @@ export async function parseSummary(
 ): Promise<SessionSummary | null> {
   const headLines = await readHeadLines(filePath, HEAD_LINES)
   const tailLines = await readTailLines(filePath, TAIL_LINES)
-  const allLines = [...headLines, ...tailLines]
+  const seen = new Set<string>()
+  const allLines: string[] = []
+  for (const line of [...headLines, ...tailLines]) {
+    if (!seen.has(line)) {
+      seen.add(line)
+      allLines.push(line)
+    }
+  }
 
   if (allLines.length === 0) return null
 
