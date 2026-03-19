@@ -4,7 +4,7 @@ import { getProjectsDir, getProjectsDirFor, getDataSources, extractSessionId } f
 import type { DataSource } from '../utils/claude-path'
 import { scanProjects, scanProjectsFrom } from './project-scanner'
 import { isSessionActive } from './active-detector'
-import { parseSummary } from '../parsers/session-parser'
+import { parseSummary, parseOutputTokens } from '../parsers/session-parser'
 import type { SessionSummary } from '../parsers/types'
 
 /** Extended summary that includes the absolute JSONL file path (server-side only). */
@@ -59,6 +59,7 @@ async function scanSessionsInternal(): Promise<SessionSummaryWithPath[]> {
       if (summary) {
         const active = await isSessionActive(project.dirName, sessionId)
         summary.isActive = active
+        summary.outputTokens = await parseOutputTokens(filePath)
 
         summaryCache.set(sessionId, {
           mtimeMs: stat.mtimeMs,
@@ -137,6 +138,7 @@ export async function scanSessionsFromSource(source: DataSource): Promise<Sessio
       if (summary) {
         const active = await isSessionActive(project.dirName, sessionId, projectsDirOverride)
         summary.isActive = active
+        summary.outputTokens = await parseOutputTokens(filePath)
         summary.sourceId = source.id
         summary.sourceLabel = source.label
         summary.sourcePlatform = source.platform
