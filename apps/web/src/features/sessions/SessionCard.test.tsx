@@ -27,6 +27,7 @@ describe('SessionCard', () => {
     model: 'claude-sonnet-4-5-20250929',
     version: '0.4.1',
     fileSizeBytes: 102400,
+    isInteractive: true,
   }
 
   it('renders truncated session ID (first 8 characters)', () => {

@@ -248,6 +248,7 @@ describe('parseStats', () => {
         model: 'claude-opus-4-6',
         version: '1.0.0',
         fileSizeBytes: 512,
+        isInteractive: true,
         filePath: '/proj/new-session.jsonl',
       }
 
@@ -259,6 +260,7 @@ describe('parseStats', () => {
         projectPath: '/proj',
         projectName: 'proj',
         branch: 'main',
+        isInteractive: true,
         turns: [
           { uuid: 't1', type: 'user', timestamp: new Date().toISOString(), toolCalls: [] },
           { uuid: 't2', type: 'assistant', timestamp: new Date().toISOString(), toolCalls: [] },
@@ -355,6 +357,7 @@ describe('hour bucketing (via computeStatsFromSessions)', () => {
       model: null,
       version: null,
       fileSizeBytes: 256,
+      isInteractive: true,
       filePath: '/proj/hour-test.jsonl',
     }
 
@@ -394,6 +397,7 @@ describe('hour bucketing (via computeStatsFromSessions)', () => {
       model: null,
       version: null,
       fileSizeBytes: 0,
+      isInteractive: true,
       filePath: '/proj/no-time.jsonl',
     }
 

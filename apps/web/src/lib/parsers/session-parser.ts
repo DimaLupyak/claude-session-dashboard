@@ -39,6 +39,16 @@ export async function parseSummary(
 
   if (allLines.length === 0) return null
 
+  // Detect non-interactive (task/subagent) sessions by checking for queue-operation type
+  let isInteractive = true
+  for (const line of allLines) {
+    const raw = safeParse(line)
+    if (raw && (raw as { type: string }).type === 'queue-operation') {
+      isInteractive = false
+      break
+    }
+  }
+
   let startedAt: string | null = null
   let lastActiveAt: string | null = null
   let branch: string | null = null
@@ -97,6 +107,7 @@ export async function parseSummary(
     model,
     version,
     fileSizeBytes,
+    isInteractive,
   }
 }
 
@@ -110,6 +121,17 @@ export async function parseDetail(
   projectPath: string,
   projectName: string,
 ): Promise<SessionDetail> {
+  // Detect non-interactive sessions by checking head lines for queue-operation
+  const headForDetect = await readHeadLines(filePath, HEAD_LINES)
+  let isInteractive = true
+  for (const line of headForDetect) {
+    const raw = safeParse(line)
+    if (raw && (raw as { type: string }).type === 'queue-operation') {
+      isInteractive = false
+      break
+    }
+  }
+
   const turns: Turn[] = []
   const toolFrequency: Record<string, number> = {}
   const errors: SessionError[] = []
@@ -560,6 +582,7 @@ export async function parseDetail(
     projectPath,
     projectName,
     branch,
+    isInteractive,
     turns,
     totalTokens,
     tokensByModel,

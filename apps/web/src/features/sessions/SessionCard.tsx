@@ -42,7 +42,7 @@ export function SessionCard({ session }: { session: SessionSummary }) {
             </p>
           )}
 
-          <SessionIdCopyRow sessionId={session.sessionId} />
+          <SessionIdCopyRow sessionId={session.sessionId} interactive={session.isInteractive} />
         </div>
 
         <span className="shrink-0 text-xs text-gray-500">
@@ -78,7 +78,7 @@ export function SessionCard({ session }: { session: SessionSummary }) {
   )
 }
 
-function SessionIdCopyRow({ sessionId }: { sessionId: string }) {
+function SessionIdCopyRow({ sessionId, interactive }: { sessionId: string; interactive: boolean }) {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -104,14 +104,16 @@ function SessionIdCopyRow({ sessionId }: { sessionId: string }) {
       <span className="truncate text-xs text-gray-500 font-mono">
         {sessionId.slice(0, 8)}
       </span>
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="rounded px-1 py-0.5 text-[10px] text-gray-600 opacity-0 transition-opacity hover:bg-gray-800 hover:text-gray-300 group-hover/id:opacity-100 group-hover:opacity-100"
-        title="Copy resume command"
-      >
-        {copied ? 'Copied!' : 'Copy'}
-      </button>
+      {interactive && (
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="rounded px-1 py-0.5 text-[10px] text-gray-600 opacity-0 transition-opacity hover:bg-gray-800 hover:text-gray-300 group-hover/id:opacity-100 group-hover:opacity-100"
+          title="Copy resume command"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      )}
     </div>
   )
 }

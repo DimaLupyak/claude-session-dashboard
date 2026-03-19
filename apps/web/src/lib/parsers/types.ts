@@ -24,6 +24,8 @@ export interface SessionSummary {
   sourceLabel?: string
   /** Platform of the DataSource this came from */
   sourcePlatform?: 'windows' | 'wsl' | 'macos' | 'linux'
+  /** Whether this is an interactive (human-driven) session vs a task/subagent session */
+  isInteractive: boolean
 }
 
 // --- Session detail (full streaming parse) ---
@@ -110,6 +112,8 @@ export interface SessionDetail {
   projectPath: string
   projectName: string
   branch: string | null
+  /** Whether this is an interactive (human-driven) session vs a task/subagent session */
+  isInteractive: boolean
   turns: Turn[]
   totalTokens: TokenUsage
   tokensByModel: Record<string, TokenUsage>
