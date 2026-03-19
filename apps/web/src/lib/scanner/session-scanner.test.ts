@@ -45,6 +45,7 @@ function makeSummary(overrides: Partial<SessionSummary> = {}): SessionSummary {
     userMessageCount: 5,
     assistantMessageCount: 5,
     isActive: false,
+    toolCallCount: 0,
     model: 'claude-opus-4-6',
     version: '1.0.0',
     fileSizeBytes: 1024,

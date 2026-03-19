@@ -24,6 +24,7 @@ describe('SessionCard', () => {
     userMessageCount: 21,
     assistantMessageCount: 21,
     isActive: false,
+    toolCallCount: 15,
     model: 'claude-sonnet-4-5-20250929',
     version: '0.4.1',
     fileSizeBytes: 102400,

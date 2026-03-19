@@ -27,6 +27,7 @@ describe('useIsSessionActive', () => {
     userMessageCount: 5,
     assistantMessageCount: 5,
     isActive: true,
+    toolCallCount: 0,
     model: 'claude-opus-4-6',
     version: '1.0.0',
     fileSizeBytes: 1024,
