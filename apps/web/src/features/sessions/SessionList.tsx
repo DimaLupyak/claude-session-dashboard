@@ -10,7 +10,7 @@ import { Route } from '@/routes/_dashboard/sessions/index'
 
 export function SessionList() {
   const navigate = useNavigate()
-  const { page, pageSize, search, status, project } = Route.useSearch()
+  const { page, pageSize, search, status, project, sort, sortDir } = Route.useSearch()
   const { storedPageSize, setPageSize } = usePageSizePreference()
   const hasAppliedStoredPreference = useRef(false)
 
@@ -33,7 +33,7 @@ export function SessionList() {
   }, [storedPageSize, pageSize, navigate])
 
   const { data: paginatedData, isLoading } = useQuery(
-    paginatedSessionListQuery({ page, pageSize, search, status, project }),
+    paginatedSessionListQuery({ page, pageSize, search, status, project, sort, sortDir }),
   )
   const { data: activeSessions = [] } = useQuery(activeSessionsQuery)
 
