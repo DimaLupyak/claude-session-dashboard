@@ -109,6 +109,9 @@ function SessionDetailPage() {
               ))}
             </div>
           )}
+          <div className="mt-1">
+            <SessionIdDisplay sessionId={sessionId} />
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <ExportDropdown
@@ -124,7 +127,6 @@ function SessionDetailPage() {
               },
             ]}
           />
-          <SessionIdDisplay sessionId={sessionId} />
         </div>
       </div>
 
