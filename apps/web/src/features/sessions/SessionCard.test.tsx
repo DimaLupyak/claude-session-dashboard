@@ -40,6 +40,25 @@ describe('SessionCard', () => {
     expect(screen.getByText(mockSession.sessionId.slice(0, 8))).toBeTruthy()
   })
 
+  it('renders tool call count when greater than zero', () => {
+    render(
+      <PrivacyProvider>
+        <SessionCard session={{ ...mockSession, toolCallCount: 15 }} />
+      </PrivacyProvider>
+    )
+    expect(screen.getByTitle('Tool calls')).toBeTruthy()
+    expect(screen.getByText('15 tools')).toBeTruthy()
+  })
+
+  it('does not render tool call count when zero', () => {
+    render(
+      <PrivacyProvider>
+        <SessionCard session={{ ...mockSession, toolCallCount: 0 }} />
+      </PrivacyProvider>
+    )
+    expect(screen.queryByTitle('Tool calls')).toBeNull()
+  })
+
   it('does not render the full session ID', () => {
     const { container } = render(
       <PrivacyProvider>
