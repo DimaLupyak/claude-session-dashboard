@@ -11,7 +11,7 @@
 [![Node.js](https://img.shields.io/node/v/claude-session-dashboard)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A read-only, local observability dashboard for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Scans your `~/.claude` directory to visualize session history, tool usage, token consumption, cost estimates, and activity trends -- all without sending data anywhere.
+See exactly where your context window goes. Trace every agent delegation. Understand how your Claude Code workflows actually execute — all from your local `~/.claude`, no data sent anywhere.
 
 ```bash
 npx claude-session-dashboard
@@ -19,32 +19,34 @@ npx claude-session-dashboard
 
 ## Why?
 
-Claude Code stores all session data locally in `~/.claude/projects/`, but there is no built-in way to browse, search, or analyze past sessions. As you accumulate hundreds of sessions across dozens of projects, questions start piling up:
+If you run Claude Code with agentic workflows and custom skills, you've probably felt this: sessions that start sharp and gradually get worse. Claude repeating itself, missing earlier context, giving shallower answers. The context window is filling up silently and you have no way to see it.
 
-- How many tokens did that refactoring session actually use?
-- Which tools does Claude call most often in my codebase?
-- How much am I spending per project, per day, per model?
-- Is the context window filling up mid-session?
-- When am I most active -- mornings or late nights?
+The fix is agent delegation — each subagent starts with a fresh context, keeping your main session lean. But most people do this by instinct, not by design. You can't optimize what you can't see.
 
-This dashboard gives you answers. It reads your local session files, parses the JSONL logs, and presents everything in a fast, searchable web UI that runs entirely on your machine.
+This dashboard makes it visible. It reads your local session files, parses the JSONL logs, and shows you what's actually happening inside your workflows — which agents were dispatched, in what order, how much context each step consumed, and where your tokens are going.
+
+Everything runs entirely on your machine. Read-only — it never modifies any Claude Code data.
 
 ## Features
+
+**Agent delegation timeline** ← the unique one
+- Gantt-style diagram showing every subagent dispatch in a session, in sequence
+- See the full delegation chain: which agents ran, in what order, how long each took
+- Token usage per agent — understand exactly how each delegation affects context consumption
+- Zoom controls for detailed inspection of complex multi-agent workflows
+
+**Context window visualization**
+- Live breakdown of how your 200K context window is being used: input, output, cache reads, cache writes
+- See at a glance whether your main session is staying lean or accumulating context
+- Per-session and per-agent cost estimates with per-model and per-category breakdowns
+
+![Session Detail](screenshots/session-detail-full.png)
 
 **Session browsing and search**
 - Full-text search across session names, projects, and branches
 - Filter by status (active / completed), project, model, and date range
 - Sortable columns with pagination
 - Active session indicator with real-time status polling
-
-**Session detail view**
-- Context window utilization breakdown (input, output, cache read, cache creation)
-- Tool usage frequency and duration statistics
-- Agent dispatch history with nested tool calls
-- Gantt-style timeline chart with zoom controls for tool calls, agent runs, and skill invocations
-- Per-session and per-agent cost estimates with per-model and per-category breakdowns
-
-![Session Detail](screenshots/session-detail-full.png)
 
 **Analytics and stats**
 - GitHub-style contribution heatmap showing token usage intensity over the past year
