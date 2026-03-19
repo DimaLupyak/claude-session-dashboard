@@ -19,6 +19,8 @@ interface PaginatedSessionParams {
   search: string
   status: 'all' | 'active' | 'completed'
   project: string
+  sort: 'lastActive' | 'started' | 'duration' | 'messages'
+  sortDir: 'asc' | 'desc'
 }
 
 export function paginatedSessionListQuery(params: PaginatedSessionParams) {
