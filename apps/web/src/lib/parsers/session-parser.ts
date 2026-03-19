@@ -968,6 +968,41 @@ function extractToolResultText(block: {
   return undefined
 }
 
+/**
+ * Lightweight streaming counter that extracts only output tokens from a session JSONL.
+ *
+ * Counts only `assistant` message `usage.output_tokens`. Progress messages are
+ * excluded to prevent double-counting subagent API calls.
+ *
+ * Deduplicates by `requestId` to avoid double-counting repeated API responses.
+ * Much cheaper than `parseDetail()` -- no turn/tool/agent tracking.
+ */
+export async function parseOutputTokens(filePath: string): Promise<number> {
+  let total = 0
+  const seenRequestIds = new Set<string>()
+
+  const stream = fs.createReadStream(filePath, { encoding: 'utf-8' })
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+
+  for await (const line of rl) {
+    const msg = safeParse(line)
+    if (!msg) continue
+
+    const requestId = msg.requestId
+    if (requestId && seenRequestIds.has(requestId)) continue
+    if (requestId) seenRequestIds.add(requestId)
+
+    // Only count direct assistant message output tokens.
+    // Progress messages are intentionally excluded to avoid double-counting
+    // subagent API calls that also appear in their own session JSONL files.
+    if (msg.type === 'assistant' && msg.message?.usage?.output_tokens) {
+      total += msg.message.usage.output_tokens
+    }
+  }
+
+  return total
+}
+
 function extractTextContent(msg: RawJsonlMessage): string | undefined {
   if (!msg.message) return undefined
   const content = msg.message.content

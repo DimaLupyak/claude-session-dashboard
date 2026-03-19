@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { formatDuration, formatRelativeTime } from '@/lib/utils/format'
+import { formatDuration, formatRelativeTime, formatTokenCount } from '@/lib/utils/format'
 import { usePrivacy } from '@/features/privacy/PrivacyContext'
 import type { ProjectAnalytics } from './project-analytics.api'
 
-type SortField = 'projectName' | 'totalSessions' | 'totalMessages' | 'totalDurationMs' | 'lastSessionAt'
+type SortField = 'projectName' | 'totalSessions' | 'totalMessages' | 'outputTokens' | 'totalDurationMs' | 'lastSessionAt'
 type SortDir = 'asc' | 'desc'
 
 interface ProjectTableProps {
@@ -15,6 +15,7 @@ const COLUMNS: { key: SortField; label: string; align?: 'right' }[] = [
   { key: 'projectName', label: 'Project' },
   { key: 'totalSessions', label: 'Sessions', align: 'right' },
   { key: 'totalMessages', label: 'Messages', align: 'right' },
+  { key: 'outputTokens', label: 'Output Tokens', align: 'right' },
   { key: 'totalDurationMs', label: 'Duration', align: 'right' },
   { key: 'lastSessionAt', label: 'Last Active', align: 'right' },
 ]
@@ -37,6 +38,9 @@ export function ProjectTable({ projects }: ProjectTableProps) {
           break
         case 'totalMessages':
           cmp = a.totalMessages - b.totalMessages
+          break
+        case 'outputTokens':
+          cmp = a.outputTokens - b.outputTokens
           break
         case 'totalDurationMs':
           cmp = a.totalDurationMs - b.totalDurationMs
@@ -108,6 +112,9 @@ export function ProjectTable({ projects }: ProjectTableProps) {
               </td>
               <td className="px-4 py-3 text-right font-mono text-sm text-gray-300">
                 {project.totalMessages.toLocaleString()}
+              </td>
+              <td className="px-4 py-3 text-right font-mono text-sm text-gray-300">
+                {formatTokenCount(project.outputTokens)}
               </td>
               <td className="px-4 py-3 text-right font-mono text-sm text-gray-300">
                 {formatDuration(project.totalDurationMs)}

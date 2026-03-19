@@ -18,6 +18,7 @@ vi.mock('../utils/claude-path', () => ({
 
 vi.mock('../parsers/session-parser', () => ({
   parseSummary: vi.fn(),
+  parseOutputTokens: vi.fn().mockResolvedValue(0),
 }))
 
 vi.mock('./active-detector', () => ({
