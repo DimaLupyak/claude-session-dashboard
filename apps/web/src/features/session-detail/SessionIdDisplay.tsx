@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 
 interface SessionIdDisplayProps {
   sessionId: string
+  interactive?: boolean
 }
 
-export function SessionIdDisplay({ sessionId }: SessionIdDisplayProps) {
+export function SessionIdDisplay({ sessionId, interactive = true }: SessionIdDisplayProps) {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -26,14 +27,16 @@ export function SessionIdDisplay({ sessionId }: SessionIdDisplayProps) {
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-xs text-gray-600">
       <span>{sessionId}</span>
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="rounded px-1 py-0.5 text-gray-500 hover:bg-gray-800 hover:text-gray-300"
-        title="Copy resume command"
-      >
-        {copied ? 'Copied!' : 'Copy'}
-      </button>
+      {interactive && (
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="rounded px-1 py-0.5 text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+          title="Copy resume command"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      )}
     </span>
   )
 }

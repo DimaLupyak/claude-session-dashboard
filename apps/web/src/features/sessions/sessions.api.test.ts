@@ -21,6 +21,7 @@ describe('paginateAndFilterSessions', () => {
     model: 'claude-opus-4-6',
     version: '1.0.0',
     fileSizeBytes: 1024,
+    isInteractive: true,
     ...overrides,
   })
 

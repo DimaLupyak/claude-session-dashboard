@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { SessionSummary } from '@/lib/parsers/types'
 import { formatDuration, formatRelativeTime, formatBytes } from '@/lib/utils/format'
@@ -40,6 +41,8 @@ export function SessionCard({ session }: { session: SessionSummary }) {
               <span className="font-mono">{displayBranch}</span>
             </p>
           )}
+
+          <SessionIdCopyRow sessionId={session.sessionId} interactive={session.isInteractive} />
         </div>
 
         <span className="shrink-0 text-xs text-gray-500">
@@ -64,9 +67,6 @@ export function SessionCard({ session }: { session: SessionSummary }) {
         <span title="File size" className="text-gray-500">
           {formatBytes(session.fileSizeBytes)}
         </span>
-        <span title="Session ID" className="font-mono text-gray-500">
-          {session.sessionId.slice(0, 8)}
-        </span>
       </div>
 
       {displayCwd && (
@@ -75,5 +75,45 @@ export function SessionCard({ session }: { session: SessionSummary }) {
         </p>
       )}
     </Link>
+  )
+}
+
+function SessionIdCopyRow({ sessionId, interactive }: { sessionId: string; interactive: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    return () => clearTimeout(timerRef.current)
+  }, [])
+
+  async function handleCopy(e: React.MouseEvent) {
+    e.stopPropagation()
+    e.preventDefault()
+    try {
+      await navigator.clipboard.writeText(`claude --resume ${sessionId}`)
+      setCopied(true)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API unavailable — silently fail
+    }
+  }
+
+  return (
+    <div className="group/id mt-1 flex items-center gap-1.5">
+      <span className="truncate text-xs text-gray-500 font-mono">
+        {sessionId.slice(0, 8)}
+      </span>
+      {interactive && (
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="rounded px-1 py-0.5 text-[10px] text-gray-600 opacity-0 transition-opacity hover:bg-gray-800 hover:text-gray-300 group-hover/id:opacity-100 group-hover:opacity-100"
+          title="Copy resume command"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      )}
+    </div>
   )
 }
